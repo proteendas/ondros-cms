@@ -1,0 +1,268 @@
+/* Deliberately minimal styling — swap for your design system / Tailwind. */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1a1a2e;
+  background: #f5f6f8;
+}
+
+a {
+  color: #2952cc;
+  text-decoration: none;
+}
+
+nav.topnav {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 10px 20px;
+  background: #101828;
+  color: #fff;
+}
+nav.topnav a {
+  color: #cdd5e0;
+  font-size: 14px;
+}
+nav.topnav a:hover {
+  color: #fff;
+}
+nav.topnav .brand {
+  font-weight: 700;
+  color: #fff;
+  margin-right: 12px;
+}
+
+main.page {
+  padding: 24px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 22px;
+}
+h2 {
+  font-size: 17px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+table.list {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  border-radius: 8px;
+}
+table.list th,
+table.list td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef0f3;
+  font-size: 14px;
+}
+table.list th {
+  background: #fafbfc;
+  font-weight: 600;
+}
+
+.btn {
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid #2952cc;
+  background: #2952cc;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn:hover {
+  background: #1f40a3;
+}
+.btn.secondary {
+  background: #fff;
+  color: #2952cc;
+}
+.btn.secondary:hover {
+  background: #eef2fc;
+}
+.btn.danger {
+  border-color: #c0392b;
+  background: #c0392b;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn.small {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.input,
+select.input,
+textarea.input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cfd6de;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+}
+.input:focus {
+  outline: 2px solid #2952cc33;
+  border-color: #2952cc;
+}
+
+label.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 14px 0 4px;
+}
+.help-text {
+  font-size: 12px;
+  color: #667085;
+  margin-top: 3px;
+}
+.error-text {
+  color: #c0392b;
+  font-size: 13px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge.draft {
+  background: #eef0f3;
+  color: #475467;
+}
+.badge.in_review {
+  background: #fef4e5;
+  color: #b25e09;
+}
+.badge.published {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+.badge.archived {
+  background: #f3e8ff;
+  color: #7e3af2;
+}
+
+/* Entry editor 3-pane layout */
+.editor-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.editor-form {
+  flex: 1 1 360px;
+  min-width: 320px;
+}
+.editor-preview {
+  flex: 1.4 1 480px;
+  min-width: 380px;
+  position: sticky;
+  top: 16px;
+}
+.editor-ai {
+  flex: 0 0 300px;
+}
+
+.preview-frame {
+  width: 100%;
+  height: 75vh;
+  border: 1px solid #e3e6ea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* Field highlighted when selected via preview inspector */
+.field-selected {
+  outline: 2px solid #2952cc;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* TipTap */
+.tiptap-toolbar {
+  display: flex;
+  gap: 4px;
+  border: 1px solid #cfd6de;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: 5px;
+  background: #fafbfc;
+}
+.tiptap-toolbar button {
+  border: 1px solid transparent;
+  background: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.tiptap-toolbar button:hover {
+  background: #eef0f3;
+}
+.tiptap-toolbar button.active {
+  background: #dbe4fb;
+  border-color: #2952cc;
+}
+.tiptap-content .ProseMirror {
+  border: 1px solid #cfd6de;
+  border-radius: 0 0 6px 6px;
+  padding: 10px 12px;
+  min-height: 160px;
+  background: #fff;
+  font-size: 14px;
+}
+.tiptap-content .ProseMirror:focus {
+  outline: 2px solid #2952cc33;
+}
+
+.ai-issue {
+  border-left: 3px solid #ccc;
+  padding: 6px 10px;
+  margin: 8px 0;
+  font-size: 13px;
+  background: #fafbfc;
+}
+.ai-issue.error {
+  border-color: #c0392b;
+}
+.ai-issue.warning {
+  border-color: #e67e22;
+}
+.ai-issue.info {
+  border-color: #2980b9;
+}
+
+.muted {
+  color: #667085;
+  font-size: 13px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.spacer {
+  flex: 1;
+}

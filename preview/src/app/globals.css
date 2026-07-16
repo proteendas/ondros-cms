@@ -1,0 +1,79 @@
+/* Minimal site styling — this app stands in for "your real website". */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #22272e;
+  background: #fff;
+  line-height: 1.65;
+}
+
+.site-header {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 14px 24px;
+  border-bottom: 1px solid #e6e8eb;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.site-header a {
+  color: #22272e;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.draft-banner {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #fff3cd;
+  color: #7a5b00;
+  padding: 6px 24px;
+  font-size: 13px;
+}
+.draft-banner a {
+  color: #7a5b00;
+}
+
+main.entry {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+main.entry h1 {
+  font-size: 2.2rem;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.excerpt {
+  font-size: 1.1rem;
+  color: #57606a;
+  font-style: italic;
+}
+
+.richtext h2 {
+  margin-top: 2em;
+}
+
+/* Inline editing affordances (only active in draft mode) */
+[data-cms-field-id].cms-hover {
+  outline: 2px dashed #2952cc;
+  outline-offset: 3px;
+  cursor: pointer;
+  position: relative;
+}
+[data-cms-field-id][contenteditable='true'] {
+  outline: 2px solid #1e7e34;
+  outline-offset: 3px;
+  cursor: text;
+}
+
+.listing {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.listing li {
+  margin: 8px 0;
+}

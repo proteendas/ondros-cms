@@ -1,0 +1,86 @@
+version: "3.9"
+
+# Headless CMS stack:
+#   db      -> Postgres 16 with the pgvector extension (guideline embeddings)
+#   backend -> FastAPI (core CMS API + AI endpoints + WebSockets)
+#   editor  -> Next.js visual editor (content types, entries, AI sidebar, live preview)
+#   preview -> Next.js preview/delivery site (draft mode + inline-editing bridge)
+#
+# Copy .env.example to .env and fill in Azure OpenAI credentials before `docker compose up`.
+# Seed sample data with: docker compose exec backend python -m app.seed
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: cms
+      POSTGRES_PASSWORD: cms
+      POSTGRES_DB: cms
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cms -d cms"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cms:cms@db:5432/cms
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+      PREVIEW_SECRET: ${PREVIEW_SECRET:-dev-preview-secret}
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-06-01}
+      AZURE_OPENAI_CHAT_DEPLOYMENT: ${AZURE_OPENAI_CHAT_DEPLOYMENT:-gpt-4o}
+      AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-text-embedding-3-small}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Live-reload for development; remove for production images.
+      - ./backend:/app
+      - backend_media:/app/media
+
+  editor:
+    build: ./editor
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_PREVIEW_URL: http://localhost:3001
+      # Dev-only convenience: the editor embeds the preview URL with this secret.
+      # In production, mint short-lived preview tokens on the backend instead.
+      NEXT_PUBLIC_PREVIEW_SECRET: ${PREVIEW_SECRET:-dev-preview-secret}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./editor:/app
+      - editor_node_modules:/app/node_modules
+
+  preview:
+    build: ./preview
+    depends_on:
+      - backend
+    environment:
+      # Server-side fetches go over the Docker network; browser-side (WS) uses localhost.
+      CMS_API_URL: http://backend:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      PREVIEW_SECRET: ${PREVIEW_SECRET:-dev-preview-secret}
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./preview:/app
+      - preview_node_modules:/app/node_modules
+
+volumes:
+  pgdata:
+  backend_media:
+  editor_node_modules:
+  preview_node_modules:
