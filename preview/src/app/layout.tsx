@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { draftMode } from 'next/headers';
 import Link from 'next/link';
 
+import { readPreviewContext } from '@/lib/previewContext';
+
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -11,6 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const { isEnabled } = draftMode();
+  const ctx = isEnabled ? readPreviewContext() : { environment: null, locale: null };
   return (
     <html lang="en">
       <body>
@@ -19,7 +22,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
         {isEnabled && (
           <div className="draft-banner">
-            Draft mode — you are viewing unpublished content.{' '}
+            Draft mode — viewing unpublished content
+            {ctx.environment ? ` · env: ${ctx.environment}` : ''}
+            {ctx.locale ? ` · ${ctx.locale}` : ''}.{' '}
             <a href="/api/exit-preview">Exit preview</a>
           </div>
         )}

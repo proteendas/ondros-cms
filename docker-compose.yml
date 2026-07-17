@@ -1,13 +1,16 @@
-version: "3.9"
-
 # Headless CMS stack:
 #   db      -> Postgres 16 with the pgvector extension (guideline embeddings)
-#   backend -> FastAPI (core CMS API + AI endpoints + WebSockets)
-#   editor  -> Next.js visual editor (content types, entries, AI sidebar, live preview)
+#   backend -> FastAPI (management + delivery/preview APIs, AI, webhooks, WebSockets)
+#   editor  -> Next.js visual editor (spaces/environments, content model, entries,
+#              media library, settings, AI sidebar, live preview)
 #   preview -> Next.js preview/delivery site (draft mode + inline-editing bridge)
 #
-# Copy .env.example to .env and fill in Azure OpenAI credentials before `docker compose up`.
-# Seed sample data with: docker compose exec backend python -m app.seed
+# Copy .env.example to .env (set an AI provider if you want AI features), then:
+#   docker compose up -d
+#   docker compose exec backend python -m app.seed
+#
+# The seed prints dev API tokens; the defaults below match them, so the preview
+# app works out of the box. Rotate everything before exposing publicly.
 
 services:
   db:
@@ -34,13 +37,24 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://cms:cms@db:5432/cms
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
-      PREVIEW_SECRET: ${PREVIEW_SECRET:-dev-preview-secret}
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # --- AI provider (see .env.example; groq/gemini/ollama are free) ------
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-}
+      AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1536}
+      # --- Azure OpenAI (only when AI_PROVIDER=azure_openai) ----------------
       AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
       AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
       AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-06-01}
       AZURE_OPENAI_CHAT_DEPLOYMENT: ${AZURE_OPENAI_CHAT_DEPLOYMENT:-gpt-4o}
       AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-text-embedding-3-small}
+      # --- Dev API tokens created by the seed script ------------------------
+      SEED_DELIVERY_TOKEN: ${SEED_DELIVERY_TOKEN:-cms_del_dev-delivery-token-0000}
+      SEED_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
     ports:
       - "8000:8000"
     volumes:
@@ -55,9 +69,9 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       NEXT_PUBLIC_PREVIEW_URL: http://localhost:3001
-      # Dev-only convenience: the editor embeds the preview URL with this secret.
-      # In production, mint short-lived preview tokens on the backend instead.
-      NEXT_PUBLIC_PREVIEW_SECRET: ${PREVIEW_SECRET:-dev-preview-secret}
+      # Dev-only: the editor embeds the preview URL with this preview API key.
+      # In production, mint short-lived preview keys on the backend instead.
+      NEXT_PUBLIC_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
     ports:
       - "3000:3000"
     volumes:
@@ -69,10 +83,11 @@ services:
     depends_on:
       - backend
     environment:
-      # Server-side fetches go over the Docker network; browser-side (WS) uses localhost.
+      # Server-side fetches go over the Docker network; browser-side (WS + media) uses localhost.
       CMS_API_URL: http://backend:8000
       NEXT_PUBLIC_API_URL: http://localhost:8000
-      PREVIEW_SECRET: ${PREVIEW_SECRET:-dev-preview-secret}
+      CMS_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
+      CMS_DELIVERY_TOKEN: ${SEED_DELIVERY_TOKEN:-cms_del_dev-delivery-token-0000}
     ports:
       - "3001:3001"
     volumes:

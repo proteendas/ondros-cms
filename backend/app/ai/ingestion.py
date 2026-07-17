@@ -69,26 +69,44 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
 async def ingest_document(session: AsyncSession, document: GuidelineDocument) -> int:
     """Chunk + embed a guideline document. Returns the number of chunks stored.
 
-    If Azure OpenAI is not configured, chunks are stored WITHOUT embeddings and
-    the document is left in status 'pending' — call again once configured.
+    If the AI provider has no embedding support (e.g. groq/openrouter), chunks
+    are stored WITHOUT embeddings and status becomes 'ingested_keyword' —
+    retrieval then uses keyword search, which needs no vectors.
     """
+    from app.config import get_settings
+
     await session.execute(delete(GuidelineChunk).where(GuidelineChunk.document_id == document.id))
 
     chunks = chunk_text(document.original_text)
     client = get_ai_client()
 
     embeddings: list[list[float] | None] = [None] * len(chunks)
-    if client.is_configured and chunks:
+    if client.supports_embeddings and chunks:
         try:
             for start in range(0, len(chunks), EMBED_BATCH_SIZE):
                 batch = chunks[start : start + EMBED_BATCH_SIZE]
                 embeddings[start : start + len(batch)] = await client.embed(batch)
-            document.status = "ingested"
+            expected_dim = get_settings().embedding_dim
+            actual_dim = len(embeddings[0]) if embeddings and embeddings[0] else 0
+            if actual_dim and actual_dim != expected_dim:
+                logger.warning(
+                    "Embedding model returns %d dims but EMBEDDING_DIM=%d; storing chunks "
+                    "without vectors (keyword retrieval). Set EMBEDDING_DIM=%d and recreate "
+                    "the guideline_chunks table to enable vector search.",
+                    actual_dim, expected_dim, actual_dim,
+                )
+                embeddings = [None] * len(chunks)
+                document.status = "ingested_keyword"
+            else:
+                document.status = "ingested"
         except AIConfigurationError:
             document.status = "pending"
         except Exception:
             logger.exception("Embedding failed for guideline %s", document.id)
             document.status = "failed"
+    elif client.is_configured:
+        # Chat-only provider: keyword retrieval works without vectors.
+        document.status = "ingested_keyword"
     else:
         document.status = "pending"
 

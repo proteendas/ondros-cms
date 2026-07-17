@@ -1,6 +1,7 @@
 """AI service layer: orchestrates RAG retrieval + prompt building + LLM calls.
 
 API routers call these functions; they never talk to the LLM client directly.
+All functions take the management-plane Actor so retrieval is tenant-scoped.
 """
 import json
 import logging
@@ -11,22 +12,32 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import Actor
 from app.ai.client import get_ai_client
 from app.ai.prompts import (
     build_compliance_messages,
     build_generate_entry_messages,
+    build_seo_meta_messages,
+    build_suggest_titles_messages,
     build_transform_messages,
+    build_translate_messages,
 )
 from app.ai.retrieval import RetrievedChunk, retrieve_guideline_chunks
-from app.models import ContentType, Entry, User
+from app.models import ContentType, Entry
 from app.schemas.ai import (
     ComplianceCheckRequest,
     ComplianceCheckResponse,
     ComplianceIssue,
     GenerateEntryRequest,
     GenerateEntryResponse,
+    SeoMetaRequest,
+    SeoMetaResponse,
+    SuggestTitlesRequest,
+    SuggestTitlesResponse,
     TransformFieldRequest,
     TransformFieldResponse,
+    TranslateFieldsRequest,
+    TranslateFieldsResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,11 +64,13 @@ def _excerpts(chunks: list[RetrievedChunk], limit: int = 300) -> list[str]:
     return [f"{c.document_title}: {c.text[:limit]}" for c in chunks]
 
 
-async def _get_content_type(db: AsyncSession, content_type_id: uuid.UUID, user: User) -> ContentType:
+async def _get_content_type(
+    db: AsyncSession, content_type_id: uuid.UUID, actor: Actor
+) -> ContentType:
     ct = (
         await db.execute(
             select(ContentType).where(
-                ContentType.id == content_type_id, ContentType.tenant_id == user.tenant_id
+                ContentType.id == content_type_id, ContentType.tenant_id == actor.tenant_id
             )
         )
     ).scalar_one_or_none()
@@ -67,20 +80,23 @@ async def _get_content_type(db: AsyncSession, content_type_id: uuid.UUID, user: 
 
 
 async def generate_entry_fields(
-    db: AsyncSession, user: User, req: GenerateEntryRequest
+    db: AsyncSession, actor: Actor, req: GenerateEntryRequest
 ) -> GenerateEntryResponse:
-    ct = await _get_content_type(db, req.content_type_id, user)
+    ct = await _get_content_type(db, req.content_type_id, actor)
 
     # Retrieve guidelines relevant to both the brief and the content type.
     chunks = await retrieve_guideline_chunks(
         db,
         query=f"{ct.name}: {req.brief}",
-        tenant_id=user.tenant_id,
+        tenant_id=actor.tenant_id,
         space_id=req.space_id or ct.space_id,
         content_type_api_id=ct.api_id,
     )
 
-    messages = build_generate_entry_messages(ct, req.brief, chunks, req.field_ids or None)
+    brief = req.brief
+    if req.locale:
+        brief += f"\n\nWrite all content in the locale '{req.locale}'."
+    messages = build_generate_entry_messages(ct, brief, chunks, req.field_ids or None)
     raw = await get_ai_client().chat(messages, temperature=0.6, json_mode=True)
     fields = _parse_json_response(raw)
 
@@ -92,12 +108,12 @@ async def generate_entry_fields(
 
 
 async def transform_field(
-    db: AsyncSession, user: User, req: TransformFieldRequest
+    db: AsyncSession, actor: Actor, req: TransformFieldRequest
 ) -> TransformFieldResponse:
     field_context = ""
     ct: ContentType | None = None
     if req.content_type_id:
-        ct = await _get_content_type(db, req.content_type_id, user)
+        ct = await _get_content_type(db, req.content_type_id, actor)
         if req.field_id:
             fd = next((f for f in ct.fields if f["id"] == req.field_id), None)
             if fd:
@@ -108,7 +124,7 @@ async def transform_field(
     chunks = await retrieve_guideline_chunks(
         db,
         query=req.text[:500],
-        tenant_id=user.tenant_id,
+        tenant_id=actor.tenant_id,
         content_type_api_id=ct.api_id if ct else None,
     )
 
@@ -118,13 +134,13 @@ async def transform_field(
 
 
 async def check_compliance(
-    db: AsyncSession, user: User, req: ComplianceCheckRequest
+    db: AsyncSession, actor: Actor, req: ComplianceCheckRequest
 ) -> ComplianceCheckResponse:
     # Resolve the fields + content type either from an entry or from the raw payload.
     if req.entry_id:
         entry = (
             await db.execute(
-                select(Entry).where(Entry.id == req.entry_id, Entry.tenant_id == user.tenant_id)
+                select(Entry).where(Entry.id == req.entry_id, Entry.tenant_id == actor.tenant_id)
             )
         ).scalar_one_or_none()
         if entry is None:
@@ -132,7 +148,7 @@ async def check_compliance(
         ct = entry.content_type
         fields = entry.fields or {}
     elif req.content_type_id is not None and req.fields is not None:
-        ct = await _get_content_type(db, req.content_type_id, user)
+        ct = await _get_content_type(db, req.content_type_id, actor)
         fields = req.fields
     else:
         raise HTTPException(
@@ -144,7 +160,7 @@ async def check_compliance(
     chunks = await retrieve_guideline_chunks(
         db,
         query=query_text,
-        tenant_id=user.tenant_id,
+        tenant_id=actor.tenant_id,
         space_id=ct.space_id,
         content_type_api_id=ct.api_id,
         top_k=8,
@@ -166,3 +182,79 @@ async def check_compliance(
         issues=issues,
         guidelines_used=_excerpts(chunks),
     )
+
+
+async def suggest_titles(
+    db: AsyncSession, actor: Actor, req: SuggestTitlesRequest
+) -> SuggestTitlesResponse:
+    ct = await _get_content_type(db, req.content_type_id, actor) if req.content_type_id else None
+    chunks = await retrieve_guideline_chunks(
+        db,
+        query=f"titles headlines {req.body[:400]}",
+        tenant_id=actor.tenant_id,
+        space_id=ct.space_id if ct else None,
+        content_type_api_id=ct.api_id if ct else None,
+    )
+    count = max(1, min(req.count, 10))
+    raw = await get_ai_client().chat(
+        build_suggest_titles_messages(req.body, count, req.locale, chunks),
+        temperature=0.8,
+        json_mode=True,
+    )
+    parsed = _parse_json_response(raw)
+    titles = [str(t) for t in parsed.get("titles", [])][:count]
+    return SuggestTitlesResponse(titles=titles)
+
+
+async def generate_seo_meta(db: AsyncSession, actor: Actor, req: SeoMetaRequest) -> SeoMetaResponse:
+    ct = await _get_content_type(db, req.content_type_id, actor) if req.content_type_id else None
+    chunks = await retrieve_guideline_chunks(
+        db,
+        query=f"SEO meta description keywords {req.title} {req.body[:300]}",
+        tenant_id=actor.tenant_id,
+        space_id=ct.space_id if ct else None,
+        content_type_api_id=ct.api_id if ct else None,
+    )
+    raw = await get_ai_client().chat(
+        build_seo_meta_messages(req.title, req.body, req.locale, chunks),
+        temperature=0.4,
+        json_mode=True,
+    )
+    parsed = _parse_json_response(raw)
+    return SeoMetaResponse(
+        seo_title=str(parsed.get("seo_title", ""))[:120],
+        seo_description=str(parsed.get("seo_description", ""))[:300],
+        keywords=[str(k) for k in parsed.get("keywords", [])][:8],
+        guidelines_used=_excerpts(chunks),
+    )
+
+
+async def translate_fields(
+    db: AsyncSession, actor: Actor, req: TranslateFieldsRequest
+) -> TranslateFieldsResponse:
+    ct = await _get_content_type(db, req.content_type_id, actor)
+    chunks = await retrieve_guideline_chunks(
+        db,
+        query=f"tone terminology translation {req.target_locale}",
+        tenant_id=actor.tenant_id,
+        space_id=ct.space_id,
+        content_type_api_id=ct.api_id,
+    )
+    # Only translate string-ish values; ids/booleans/numbers pass through untouched.
+    translatable = {
+        k: v for k, v in req.fields.items() if isinstance(v, str) and v.strip()
+    }
+    if not translatable:
+        return TranslateFieldsResponse(fields=req.fields)
+
+    raw = await get_ai_client().chat(
+        build_translate_messages(ct, translatable, req.source_locale, req.target_locale, chunks),
+        temperature=0.3,
+        json_mode=True,
+    )
+    parsed = _parse_json_response(raw)
+    out = dict(req.fields)
+    for k in translatable:
+        if isinstance(parsed.get(k), str):
+            out[k] = parsed[k]
+    return TranslateFieldsResponse(fields=out, guidelines_used=_excerpts(chunks))

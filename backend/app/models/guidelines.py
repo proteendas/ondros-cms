@@ -31,6 +31,10 @@ class GuidelineDocument(Base):
     space_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("spaces.id", ondelete="CASCADE"), nullable=True
     )
+    # Optional environment scoping; NULL = applies to every environment.
+    environment_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("environments.id", ondelete="CASCADE"), nullable=True
+    )
     title: Mapped[str] = mapped_column(String(300))
     source_type: Mapped[str] = mapped_column(String(30), default="text")  # text | upload | url
     original_text: Mapped[str] = mapped_column(Text)

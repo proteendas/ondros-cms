@@ -1,0 +1,15 @@
+{
+  "name": "@yourcms/sdk",
+  "version": "2.0.0",
+  "description": "Typed client for the CMS delivery & preview APIs (retry, SWR cache, link resolution, field filters)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

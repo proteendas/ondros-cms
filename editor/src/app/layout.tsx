@@ -1,26 +1,25 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+
+import AppShell from '@/components/AppShell';
+import { ToastProvider } from '@/components/ui';
+import { WorkspaceProvider } from '@/lib/workspace';
 
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'CMS Editor',
-  description: 'Headless CMS visual editor',
+  title: 'Compose CMS',
+  description: 'Headless CMS editor — content modeling, entries, media, AI',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <nav className="topnav">
-          <span className="brand">CMS</span>
-          <Link href="/content-types">Content types</Link>
-          <Link href="/entries">Entries</Link>
-          <Link href="/guidelines">Guidelines</Link>
-          <span className="spacer" />
-          <Link href="/login">Sign in</Link>
-        </nav>
-        <main className="page">{children}</main>
+        <WorkspaceProvider>
+          <ToastProvider>
+            <AppShell>{children}</AppShell>
+          </ToastProvider>
+        </WorkspaceProvider>
       </body>
     </html>
   );

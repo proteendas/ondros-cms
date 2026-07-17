@@ -17,7 +17,7 @@ export interface InspectorHandlers {
   /** Preview element was clicked: focus the corresponding form field. */
   onFieldSelected?: (entryId: string, fieldId: string) => void;
   /** Inline edit was committed inside the preview: persist the new value. */
-  onInlineEdit?: (entryId: string, fieldId: string, value: string) => void;
+  onInlineEdit?: (entryId: string, fieldId: string, value: string, locale?: string) => void;
   /** Preview bridge finished booting (safe to send SET_INSPECTOR etc.). */
   onPreviewReady?: () => void;
   /** Restrict to messages from this origin. Defaults to the preview app origin. */
@@ -43,7 +43,7 @@ export function useInspectorMessages(handlers: InspectorHandlers): void {
           onFieldSelected?.(data.entryId, data.fieldId);
           break;
         case MSG.INLINE_EDIT:
-          onInlineEdit?.(data.entryId, data.fieldId, data.value);
+          onInlineEdit?.(data.entryId, data.fieldId, data.value, data.locale);
           break;
         case MSG.PREVIEW_READY:
           onPreviewReady?.();

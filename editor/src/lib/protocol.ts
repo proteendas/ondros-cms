@@ -4,13 +4,13 @@
  * two files identical (or extract to a shared package in a monorepo setup).
  *
  * Editor <- Preview:
- *   FIELD_SELECTED  { entryId, fieldId }            inspector click in preview
- *   INLINE_EDIT     { entryId, fieldId, value }     contentEditable commit in preview
- *   PREVIEW_READY   { entryId }                     bridge booted
+ *   FIELD_SELECTED  { entryId, fieldId }                 inspector click in preview
+ *   INLINE_EDIT     { entryId, fieldId, value, locale }  contentEditable commit in preview
+ *   PREVIEW_READY   { entryId }                          bridge booted
  *
  * Editor -> Preview:
- *   FIELD_UPDATED   { entryId, fieldId, value }     optimistic DOM patch after save
- *   SET_INSPECTOR   { enabled }                     toggle inspector outlines
+ *   FIELD_UPDATED   { entryId, fieldId, value }          optimistic DOM patch after save
+ *   SET_INSPECTOR   { enabled }                          toggle inspector outlines
  */
 
 export const MSG = {
@@ -32,6 +32,8 @@ export interface InlineEditMessage {
   entryId: string;
   fieldId: string;
   value: string;
+  /** Locale the preview was rendering when the edit was made. */
+  locale?: string;
 }
 
 export interface FieldUpdatedMessage {

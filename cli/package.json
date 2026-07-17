@@ -1,0 +1,13 @@
+{
+  "name": "yourcms-cli",
+  "version": "1.0.0",
+  "description": "CLI for the CMS: login, space init, content-type import/export, TypeScript type generation",
+  "type": "module",
+  "bin": {
+    "yourcms-cli": "./bin/yourcms-cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": ["bin"]
+}

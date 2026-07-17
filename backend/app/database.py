@@ -22,9 +22,12 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
+    from app.migrations import run_dev_migrations
     from app.models import Base  # imported here so all models are registered
 
     async with engine.begin() as conn:
         # pgvector must exist before create_all touches the Vector column.
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
+        # Upgrade databases created by older versions of this schema in place.
+        await run_dev_migrations(conn)

@@ -1,22 +1,41 @@
 import Link from 'next/link';
 
-import { listPublished } from '@/lib/cms';
+import { listEntries } from '@/lib/cms';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  let articles: Awaited<ReturnType<typeof listPublished>> = [];
+  let articles: Awaited<ReturnType<typeof listEntries>> = [];
+  let pages: Awaited<ReturnType<typeof listEntries>> = [];
   let error: string | null = null;
   try {
-    articles = await listPublished('article');
+    [articles, pages] = await Promise.all([
+      listEntries('article'),
+      listEntries('landing_page'),
+    ]);
   } catch (e) {
     error = e instanceof Error ? e.message : 'Failed to reach the CMS API';
   }
 
   return (
     <main className="entry listing">
-      <h1>Published articles</h1>
+      <h1>Published content</h1>
       {error && <p>⚠ {error}</p>}
+
+      {pages.length > 0 && (
+        <>
+          <h2>Pages</h2>
+          <ul>
+            {pages.map((p) => (
+              <li key={p.id}>
+                <Link href={`/landing_page/${p.slug}`}>{String(p.fields.title ?? p.slug)}</Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <h2>Articles</h2>
       <ul>
         {articles.map((a) => (
           <li key={a.id}>
@@ -24,8 +43,8 @@ export default async function HomePage() {
           </li>
         ))}
       </ul>
-      {articles.length === 0 && !error && (
-        <p>No published articles yet. Publish one from the editor, or run the seed script.</p>
+      {articles.length === 0 && pages.length === 0 && !error && (
+        <p>Nothing published yet. Publish an entry from the editor, or run the seed script.</p>
       )}
     </main>
   );

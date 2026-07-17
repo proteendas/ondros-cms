@@ -2,9 +2,9 @@
 
 /**
  * Entry editor: three panes.
- *   left   — DynamicEntryForm (schema-driven inputs, TipTap for richtext)
+ *   left   — DynamicEntryForm (schema-driven inputs, locale tabs, TipTap)
  *   center — LivePreviewPane (draft-mode iframe of the preview app)
- *   right  — AISidebar (generate / transform / compliance)
+ *   right  — AISidebar (generate / transform / SEO / translate / compliance)
  *
  * Data flow:
  *   typing -> local state -> debounced PATCH /entries/{id}
@@ -14,43 +14,68 @@
  *   preview inline edit -> postMessage -> PATCH (editor owns the JWT)
  */
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AISidebar from '@/components/AISidebar';
 import DynamicEntryForm from '@/components/DynamicEntryForm';
 import LivePreviewPane, { LivePreviewHandle } from '@/components/LivePreviewPane';
+import VersionHistory from '@/components/VersionHistory';
 import { useInspectorMessages } from '@/components/InspectorMode';
 import { api } from '@/lib/api';
 import { useEntrySocket } from '@/lib/useEntrySocket';
+import { useWorkspace } from '@/lib/workspace';
+import { withLocalizedValue } from '@/lib/types';
 import type { ContentType, Entry, EntryStatus } from '@/lib/types';
 
 const SAVE_DEBOUNCE_MS = 600;
 
-const NEXT_STATUS: Record<EntryStatus, { label: string; to: EntryStatus }[]> = {
+const NEXT_STATUS: Record<EntryStatus, { label: string; to: EntryStatus; primary?: boolean }[]> = {
   draft: [
     { label: 'Submit for review', to: 'in_review' },
-    { label: 'Publish', to: 'published' },
+    { label: 'Publish', to: 'published', primary: true },
   ],
   in_review: [
     { label: 'Back to draft', to: 'draft' },
-    { label: 'Publish', to: 'published' },
+    { label: 'Publish', to: 'published', primary: true },
   ],
-  published: [{ label: 'Unpublish', to: 'draft' }],
+  published: [
+    { label: 'Unpublish', to: 'draft' },
+    { label: 'Archive', to: 'archived' },
+  ],
   archived: [{ label: 'Restore to draft', to: 'draft' }],
 };
 
+type PaneMode = 'split' | 'form' | 'preview';
+
 export default function EntryEditorPage() {
   const { id } = useParams<{ id: string }>();
+  const { space, environment, envPath, spacePath, can } = useWorkspace();
+
   const [entry, setEntry] = useState<Entry | null>(null);
   const [contentType, setContentType] = useState<ContentType | null>(null);
+  const [allTypes, setAllTypes] = useState<ContentType[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'dirty' | 'error'>('saved');
   const [error, setError] = useState<string | null>(null);
+  const [pane, setPane] = useState<PaneMode>('split');
+  const [showHistory, setShowHistory] = useState(false);
+
+  const locales = space?.locales ?? [{ code: 'en-US', name: 'English (US)' }];
+  const defaultLocale = space?.default_locale ?? 'en-US';
+  const [locale, setLocale] = useState(defaultLocale);
+  useEffect(() => setLocale(defaultLocale), [defaultLocale]);
 
   const previewRef = useRef<LivePreviewHandle>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPatch = useRef<Record<string, unknown>>({});
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+
+  const hasLocalizedFields = useMemo(
+    () => (contentType?.fields ?? []).some((f) => f.localized),
+    [contentType],
+  );
 
   // ---- initial load -------------------------------------------------------
   useEffect(() => {
@@ -63,6 +88,11 @@ export default function EntryEditorPage() {
       })
       .catch((e) => setError(e.message));
   }, [id]);
+
+  useEffect(() => {
+    if (!envPath) return;
+    api<ContentType[]>(`${envPath}/content-types`).then(setAllTypes).catch(() => {});
+  }, [envPath]);
 
   // ---- saving (debounced, merge-patch) ------------------------------------
   const flushSave = useCallback(async () => {
@@ -118,11 +148,38 @@ export default function EntryEditorPage() {
   }, []);
 
   const onInlineEdit = useCallback(
-    (entryId: string, fieldId: string, value: string) => {
-      setValues((prev) => ({ ...prev, [fieldId]: value }));
-      queueSave(fieldId, value);
+    (entryId: string, fieldId: string, value: string, editLocale?: string) => {
+      if (!entry || entryId === entry.id) {
+        const fd = contentType?.fields.find((f) => f.id === fieldId);
+        const raw = valuesRef.current[fieldId];
+        const next = fd?.localized
+          ? withLocalizedValue(fd, raw, editLocale || locale, value)
+          : value;
+        setValues((prev) => ({ ...prev, [fieldId]: next }));
+        queueSave(fieldId, next);
+        return;
+      }
+      // Edit on a NESTED assembly block: patch that entry directly.
+      void (async () => {
+        try {
+          const target = await api<Entry>(`/entries/${entryId}`);
+          const targetCt =
+            allTypes.find((t) => t.id === target.content_type_id) ??
+            (await api<ContentType>(`/content-types/${target.content_type_id}`));
+          const fd = targetCt.fields.find((f) => f.id === fieldId);
+          const next = fd?.localized
+            ? withLocalizedValue(fd, target.fields?.[fieldId], editLocale || locale, value)
+            : value;
+          await api(`/entries/${entryId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ fields: { [fieldId]: next } }),
+          });
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Failed to save nested block edit');
+        }
+      })();
     },
-    [queueSave],
+    [queueSave, contentType, locale, entry, allTypes],
   );
 
   useInspectorMessages({ onFieldSelected, onInlineEdit });
@@ -150,10 +207,14 @@ export default function EntryEditorPage() {
     setError(null);
     await flushSave();
     try {
-      const updated = await api<Entry>(`/entries/${entry.id}/transition`, {
-        method: 'POST',
-        body: JSON.stringify({ status: to }),
-      });
+      const action = { published: 'publish', archived: 'archive' }[to as string] ?? (entry.status === 'published' ? 'unpublish' : null);
+      const updated =
+        action && ['publish', 'unpublish', 'archive'].includes(action)
+          ? await api<Entry>(`/entries/${entry.id}/${action}`, { method: 'POST' })
+          : await api<Entry>(`/entries/${entry.id}/transition`, {
+              method: 'POST',
+              body: JSON.stringify({ status: to }),
+            });
       setEntry(updated);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Transition failed');
@@ -163,56 +224,122 @@ export default function EntryEditorPage() {
   if (error && !entry) return <p className="error-text">{error}</p>;
   if (!entry || !contentType) return <p className="muted">Loading…</p>;
 
+  const showForm = pane !== 'preview';
+  const showPreview = pane !== 'form';
+
   return (
     <div>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <h1 style={{ margin: 0 }}>
-          {contentType.name}: {entry.slug}
-        </h1>
-        <span className={`badge ${entry.status}`}>{entry.status}</span>
-        <span className="muted">v{entry.version}</span>
-        <span className="muted">
-          {saveState === 'saved' && '✓ saved'}
-          {saveState === 'dirty' && '…'}
-          {saveState === 'saving' && 'saving…'}
-          {saveState === 'error' && <span className="error-text">save failed</span>}
+      <div className="page-header" style={{ marginBottom: 10 }}>
+        <div>
+          <h1 style={{ margin: 0 }}>
+            {contentType.name} <span className="muted mono">/{entry.slug}</span>
+          </h1>
+        </div>
+        <span className={`badge ${entry.status}`}>{entry.status.replace('_', ' ')}</span>
+        <span className="muted small">v{entry.version}</span>
+        <span className="save-indicator">
+          <span className={`dot ${saveState}`} />
+          {saveState === 'saved' && 'Saved'}
+          {saveState === 'dirty' && 'Unsaved changes'}
+          {saveState === 'saving' && 'Saving…'}
+          {saveState === 'error' && <span className="error-text">Save failed</span>}
         </span>
         <span className="spacer" />
-        {NEXT_STATUS[entry.status].map(({ label, to }) => (
-          <button key={to} className="btn secondary" onClick={() => transition(to)}>
-            {label}
-          </button>
-        ))}
+        <div className="tabs" style={{ border: 'none', marginBottom: 0 }}>
+          {(['form', 'split', 'preview'] as PaneMode[]).map((m) => (
+            <button key={m} className={`tab${pane === m ? ' active' : ''}`} onClick={() => setPane(m)}>
+              {m === 'form' ? 'Editor' : m === 'split' ? 'Split' : 'Preview'}
+            </button>
+          ))}
+        </div>
+        <button className="btn secondary small" onClick={() => setShowHistory(true)}>
+          🕘 History
+        </button>
+        {can('publish_entries') &&
+          NEXT_STATUS[entry.status].map(({ label, to, primary }) => (
+            <button key={to} className={`btn${primary ? '' : ' secondary'}`} onClick={() => transition(to)}>
+              {label}
+            </button>
+          ))}
       </div>
-      {error && <p className="error-text">{error}</p>}
+      {error && (
+        <p className="error-text" style={{ whiteSpace: 'pre-wrap' }}>
+          {error}
+        </p>
+      )}
 
       <div className="editor-layout">
-        <div className="editor-form card">
-          <DynamicEntryForm
-            contentType={contentType}
-            values={values}
-            onChange={handleFieldChange}
-            selectedFieldId={selectedFieldId}
-            onFieldFocus={setSelectedFieldId}
-          />
-        </div>
+        {showForm && (
+          <div className="editor-form">
+            {(hasLocalizedFields || locales.length > 1) && (
+              <div className="tabs">
+                {locales.map((l) => (
+                  <button
+                    key={l.code}
+                    className={`tab${locale === l.code ? ' active' : ''}`}
+                    onClick={() => setLocale(l.code)}
+                    title={l.name}
+                  >
+                    {l.code}
+                    {l.code === defaultLocale && ' ★'}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="card">
+              <DynamicEntryForm
+                contentType={contentType}
+                allTypes={allTypes}
+                values={values}
+                onChange={handleFieldChange}
+                locale={locale}
+                defaultLocale={defaultLocale}
+                envPath={envPath ?? ''}
+                spacePath={spacePath ?? ''}
+                selectedFieldId={selectedFieldId}
+                onFieldFocus={setSelectedFieldId}
+              />
+            </div>
+          </div>
+        )}
 
-        <div className="editor-preview">
-          <LivePreviewPane
-            ref={previewRef}
-            entry={entry}
-            contentType={contentType}
-            onFieldSelected={onFieldSelected}
-            onInlineCommit={onInlineEdit}
-          />
-        </div>
+        {showPreview && (
+          <div className="editor-preview">
+            <LivePreviewPane
+              ref={previewRef}
+              entry={entry}
+              contentType={contentType}
+              spaceId={space?.id ?? ''}
+              environmentKey={environment?.key ?? 'master'}
+              locale={locale}
+              onFieldSelected={onFieldSelected}
+              onInlineCommit={onInlineEdit}
+            />
+          </div>
+        )}
 
-        <div className="editor-ai">
+        {showHistory && entry && (
+          <VersionHistory
+            entryId={entry.id}
+            currentFields={values}
+            onClose={() => setShowHistory(false)}
+            onRestored={(restored) => {
+              setEntry(restored);
+              setValues(restored.fields ?? {});
+            }}
+          />
+        )}
+
+        <div className="editor-side">
           <AISidebar
             contentType={contentType}
             entryId={entry.id}
             spaceId={entry.space_id}
+            environmentId={entry.environment_id}
             values={values}
+            locale={locale}
+            defaultLocale={defaultLocale}
+            locales={locales.map((l) => l.code)}
             selectedFieldId={selectedFieldId}
             onApplyField={handleFieldChange}
             onApplyFields={applyGeneratedFields}

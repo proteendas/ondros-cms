@@ -1,4 +1,17 @@
-"""RAG retrieval over guideline chunks (pgvector cosine distance)."""
+"""RAG retrieval over guideline chunks.
+
+Two modes, selected automatically:
+
+  vector   -> provider supports embeddings AND chunks were embedded:
+              pgvector cosine-distance top-k (best quality).
+  keyword  -> chat-only providers (groq, openrouter) or unembedded chunks:
+              term-overlap scoring over the chunk text (works everywhere).
+
+Both modes apply the same scoping: tenant (hard boundary), optional space
+(space match OR tenant-wide docs), optional content type (post-filter on
+chunk.meta["content_types"]).
+"""
+import re
 import uuid
 from dataclasses import dataclass
 
@@ -18,6 +31,42 @@ class RetrievedChunk:
     distance: float | None = None
 
 
+def retrieval_mode() -> str:
+    client = get_ai_client()
+    if not client.is_configured:
+        return "disabled"
+    return "vector" if client.supports_embeddings else "keyword"
+
+
+def _scoped_stmt(tenant_id: uuid.UUID, space_id: uuid.UUID | None):
+    stmt = (
+        select(GuidelineChunk, GuidelineDocument)
+        .join(GuidelineDocument, GuidelineChunk.document_id == GuidelineDocument.id)
+        .where(GuidelineDocument.tenant_id == tenant_id)
+    )
+    if space_id is not None:
+        stmt = stmt.where(
+            (GuidelineDocument.space_id == space_id) | (GuidelineDocument.space_id.is_(None))
+        )
+    return stmt
+
+
+def _passes_ct_filter(chunk: GuidelineChunk, content_type_api_id: str | None) -> bool:
+    applies_to = (chunk.meta or {}).get("content_types") or []
+    return not (content_type_api_id and applies_to and content_type_api_id not in applies_to)
+
+
+_WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9\-]{2,}")
+
+
+def _keyword_score(query_terms: set[str], text: str) -> float:
+    if not query_terms:
+        return 0.0
+    text_terms = {w.lower() for w in _WORD_RE.findall(text)}
+    overlap = len(query_terms & text_terms)
+    return overlap / len(query_terms)
+
+
 async def retrieve_guideline_chunks(
     session: AsyncSession,
     query: str,
@@ -26,45 +75,47 @@ async def retrieve_guideline_chunks(
     content_type_api_id: str | None = None,
     top_k: int = 5,
 ) -> list[RetrievedChunk]:
-    """Embed `query`, return the top_k closest guideline chunks for this tenant.
-
-    Scoping rules:
-      - tenant_id always filters (hard boundary).
-      - space: chunks from documents with matching space_id OR tenant-wide (NULL).
-      - content type: applied post-query in Python against chunk.meta["content_types"]
-        (empty list = applies to all types). Move into a JSONB @> filter if the
-        chunk table grows large.
-    """
+    """Return the top_k most relevant guideline chunks for this tenant."""
     client = get_ai_client()
     if not client.is_configured or not query.strip():
         return []
 
-    query_vec = (await client.embed([query]))[0]
+    if client.supports_embeddings:
+        try:
+            return await _vector_search(
+                session, query, tenant_id, space_id, content_type_api_id, top_k
+            )
+        except Exception:
+            # Dimension mismatch (EMBEDDING_DIM vs model), unembedded chunks,
+            # provider hiccup... degrade gracefully.
+            pass
+    return await _keyword_search(session, query, tenant_id, space_id, content_type_api_id, top_k)
+
+
+async def _vector_search(
+    session: AsyncSession,
+    query: str,
+    tenant_id: uuid.UUID,
+    space_id: uuid.UUID | None,
+    content_type_api_id: str | None,
+    top_k: int,
+) -> list[RetrievedChunk]:
+    query_vec = (await get_ai_client().embed([query]))[0]
 
     # Over-fetch so post-filtering by content type still leaves top_k results.
-    fetch_n = top_k * 4
     distance = GuidelineChunk.embedding.cosine_distance(query_vec)
     stmt = (
-        select(GuidelineChunk, GuidelineDocument, distance.label("distance"))
-        .join(GuidelineDocument, GuidelineChunk.document_id == GuidelineDocument.id)
-        .where(
-            GuidelineDocument.tenant_id == tenant_id,
-            GuidelineChunk.embedding.is_not(None),
-        )
+        _scoped_stmt(tenant_id, space_id)
+        .add_columns(distance.label("distance"))
+        .where(GuidelineChunk.embedding.is_not(None))
         .order_by(distance)
-        .limit(fetch_n)
+        .limit(top_k * 4)
     )
-    if space_id is not None:
-        stmt = stmt.where(
-            (GuidelineDocument.space_id == space_id) | (GuidelineDocument.space_id.is_(None))
-        )
-
     rows = (await session.execute(stmt)).all()
 
     results: list[RetrievedChunk] = []
     for chunk, doc, dist in rows:
-        applies_to = (chunk.meta or {}).get("content_types") or []
-        if content_type_api_id and applies_to and content_type_api_id not in applies_to:
+        if not _passes_ct_filter(chunk, content_type_api_id):
             continue
         results.append(
             RetrievedChunk(
@@ -78,3 +129,36 @@ async def retrieve_guideline_chunks(
         if len(results) >= top_k:
             break
     return results
+
+
+async def _keyword_search(
+    session: AsyncSession,
+    query: str,
+    tenant_id: uuid.UUID,
+    space_id: uuid.UUID | None,
+    content_type_api_id: str | None,
+    top_k: int,
+) -> list[RetrievedChunk]:
+    """Term-overlap ranking; fine at guideline scale (hundreds of chunks)."""
+    query_terms = {w.lower() for w in _WORD_RE.findall(query)}
+    rows = (await session.execute(_scoped_stmt(tenant_id, space_id).limit(500))).all()
+
+    scored: list[tuple[float, GuidelineChunk, GuidelineDocument]] = []
+    for chunk, doc in rows:
+        if not _passes_ct_filter(chunk, content_type_api_id):
+            continue
+        score = _keyword_score(query_terms, chunk.text)
+        if score > 0:
+            scored.append((score, chunk, doc))
+    scored.sort(key=lambda t: t[0], reverse=True)
+
+    return [
+        RetrievedChunk(
+            text=chunk.text,
+            document_title=doc.title,
+            document_id=doc.id,
+            chunk_index=chunk.chunk_index,
+            distance=1.0 - score,  # keep the "lower is better" convention
+        )
+        for score, chunk, doc in scored[:top_k]
+    ]

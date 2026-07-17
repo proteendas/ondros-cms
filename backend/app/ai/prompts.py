@@ -96,6 +96,7 @@ TRANSFORM_INSTRUCTIONS = {
     "shorten": "Shorten the text significantly (aim for 50-60% of the original length) while keeping the key message.",
     "expand": "Expand the text with more detail and supporting sentences, staying factual to the original.",
     "seo": "Rewrite the text to be SEO-friendly: front-load keywords, use active voice, keep it compelling for search snippets.",
+    "translate": "Translate the text into the target locale named in the editor's instruction. Preserve meaning, tone, formatting and any HTML structure; keep brand and product names untranslated.",
     "custom": "Follow the editor's instruction exactly.",
 }
 
@@ -121,6 +122,85 @@ Return ONLY the transformed text — no preamble, no quotes, no markdown fences.
 
 ## Input text
 {text}
+"""
+    return [
+        {"role": "system", "content": CMS_SYSTEM_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+
+def build_suggest_titles_messages(body: str, count: int, locale: str | None, chunks: list[RetrievedChunk]) -> list[dict]:
+    locale_line = f"Write the titles in the locale '{locale}'.\n" if locale else ""
+    user = f"""\
+## Brand & editorial guidelines (authoritative)
+{_guidelines_block(chunks)}
+
+## Task
+Suggest {count} alternative titles/headlines for the content below.
+{locale_line}Respond with ONLY a JSON object: {{"titles": ["...", "..."]}}.
+Titles must respect the guidelines (casing, tone, banned words).
+
+## Content
+{body[:6000]}
+"""
+    return [
+        {"role": "system", "content": CMS_SYSTEM_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+
+def build_seo_meta_messages(
+    title: str, body: str, locale: str | None, chunks: list[RetrievedChunk]
+) -> list[dict]:
+    locale_line = f"Write in the locale '{locale}'.\n" if locale else ""
+    user = f"""\
+## Brand & editorial guidelines (authoritative)
+{_guidelines_block(chunks)}
+
+## Task
+Generate SEO metadata for the page below. {locale_line}Respond with ONLY a JSON object:
+{{
+  "seo_title": string,        // <= 60 chars, includes the primary topic
+  "seo_description": string,  // 150-160 chars, compelling, includes primary keyword
+  "keywords": [string]        // 3-8 focus keywords/phrases
+}}
+
+## Page title
+{title or "(untitled)"}
+
+## Page content
+{body[:6000]}
+"""
+    return [
+        {"role": "system", "content": CMS_SYSTEM_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+
+def build_translate_messages(
+    content_type: ContentType,
+    fields: dict,
+    source_locale: str,
+    target_locale: str,
+    chunks: list[RetrievedChunk],
+) -> list[dict]:
+    user = f"""\
+## Brand & editorial guidelines (authoritative)
+{_guidelines_block(chunks)}
+
+## Content type: {content_type.name} ({content_type.api_id})
+{_schema_block(content_type, list(fields.keys()))}
+
+## Task
+Translate the field values below from locale '{source_locale}' to locale '{target_locale}'.
+- Preserve HTML structure exactly for richtext fields (translate only the text nodes).
+- Keep placeholders, brand names and product names untranslated.
+- Respect length constraints from the schema and the guidelines' tone.
+Respond with ONLY a JSON object mapping field id -> translated value, with the
+same keys as the input.
+
+## Field values ({source_locale})
+{json.dumps(fields, indent=2, ensure_ascii=False, default=str)}
 """
     return [
         {"role": "system", "content": CMS_SYSTEM_PROMPT},

@@ -58,9 +58,70 @@ main.entry h1 {
   margin-top: 2em;
 }
 
+/* Assembly blocks (nested referenced entries) */
+.block {
+  margin: 1.4em 0;
+}
+.block-hero {
+  background: #f6f8fa;
+  border-radius: 12px;
+  padding: 36px 32px;
+  text-align: center;
+}
+.block-hero h2 {
+  font-size: 2rem;
+  margin: 0 0 8px;
+}
+.block-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.block-card {
+  border: 1px solid #e6e8eb;
+  border-radius: 10px;
+  padding: 18px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.block-card h2 {
+  font-size: 1.05rem;
+  margin: 0 0 6px;
+}
+.block-card p {
+  font-size: 0.92rem;
+  color: #57606a;
+  margin: 0;
+}
+.cta {
+  display: inline-block;
+  background: #4f46e5;
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+}
+.media-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.json-block {
+  background: #f6f8fa;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  overflow-x: auto;
+}
+.meta {
+  color: #57606a;
+  font-size: 0.9rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 /* Inline editing affordances (only active in draft mode) */
 [data-cms-field-id].cms-hover {
-  outline: 2px dashed #2952cc;
+  outline: 2px dashed #4f46e5;
   outline-offset: 3px;
   cursor: pointer;
   position: relative;
@@ -69,6 +130,19 @@ main.entry h1 {
   outline: 2px solid #1e7e34;
   outline-offset: 3px;
   cursor: text;
+}
+.cms-field-tag {
+  position: absolute;
+  z-index: 9999;
+  background: #4f46e5;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 5px 5px 5px 0;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .listing {

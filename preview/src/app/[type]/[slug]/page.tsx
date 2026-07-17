@@ -1,20 +1,23 @@
 /**
  * Generic entry page: /{content_type_api_id}/{slug}
  *
- * Draft mode OFF -> published content from the public delivery API.
- * Draft mode ON  -> draft content from the secret-gated preview API, plus the
- *                   InlineEditingBridge (inspector, inline editing, WS refresh).
+ * Draft mode OFF -> published content via the delivery API (delivery token).
+ * Draft mode ON  -> draft content via the preview API (preview token), plus
+ *                   the InlineEditingBridge (inspector, inline editing, WS
+ *                   refresh) and the environment/locale from the preview cookie.
  *
- * For real sites, add specialized routes (e.g. app/blog/[slug]) that render
- * bespoke components per content type — keep the data-cms-* attributes so
- * inline editing keeps working.
+ * References are fetched with include=2, so assemblies (landing page -> hero +
+ * cards) render nested blocks. For real sites, add specialized routes
+ * (e.g. app/blog/[slug]) with bespoke components per content type — keep the
+ * data-cms-* attributes so inline editing keeps working.
  */
 import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import EntryRenderer from '@/components/EntryRenderer';
 import InlineEditingBridge from '@/components/InlineEditingBridge';
-import { getDraftEntry, getPublishedEntry } from '@/lib/cms';
+import { getEntry } from '@/lib/cms';
+import { readPreviewContext } from '@/lib/previewContext';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,17 +27,22 @@ interface Props {
 
 export default async function EntryPage({ params }: Props) {
   const { isEnabled } = draftMode();
+  const ctx = isEnabled ? readPreviewContext() : { environment: null, locale: null };
 
-  const entry = isEnabled
-    ? await getDraftEntry(params.type, params.slug)
-    : await getPublishedEntry(params.type, params.slug);
+  const result = await getEntry(params.type, params.slug, {
+    draft: isEnabled,
+    environment: ctx.environment,
+    locale: ctx.locale,
+  });
 
-  if (!entry) notFound();
+  if (!result) notFound();
 
   return (
     <>
-      <EntryRenderer entry={entry} />
-      {isEnabled && <InlineEditingBridge entryId={entry.id} />}
+      <EntryRenderer entry={result.entry} includes={result.includes} />
+      {isEnabled && (
+        <InlineEditingBridge entryId={result.entry.id} locale={ctx.locale ?? undefined} />
+      )}
     </>
   );
 }

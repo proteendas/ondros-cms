@@ -1,158 +1,170 @@
-# Headless CMS — FastAPI + Next.js + PgVector + Azure OpenAI
+# Compose CMS — a Contentful-style headless CMS
 
-A headless CMS with a **visual editor**, **live preview with inline editing**
-(in the spirit of AEM Universal Editor / Contentful Live Preview), and
-**guideline-aware AI** (RAG over your own brand/editorial docs via PgVector).
+FastAPI + Next.js + Postgres/PgVector. Multi-tenant **spaces & environments**,
+rich **content modeling** (references/assemblies, localization, media), split
+**delivery / preview / management APIs** with scoped API keys, **roles &
+permissions**, **webhooks**, a polished **visual editor** with live preview +
+inline editing (AEM Universal Editor / Contentful Live Preview-style), and
+**guideline-aware AI** that works with free providers (Groq, Gemini, Ollama).
 
 ```
 ┌───────────────┐   REST + WS    ┌────────────────┐   SQL + pgvector  ┌──────────┐
 │ editor (Next) │ ─────────────► │ backend        │ ────────────────► │ Postgres │
 │ :3000         │                │ (FastAPI) :8000│                   │ :5432    │
 └──────┬────────┘                └───────▲────────┘                   └──────────┘
-       │ iframe + postMessage           │ draft/published fetch + WS
+       │ iframe + postMessage           │ delivery/preview API (API keys) + WS
 ┌──────▼────────┐                       │
 │ preview (Next)│ ──────────────────────┘
 │ :3001         │   renders entries with data-cms-* attributes
 └───────────────┘
+sdk/               zero-dependency TypeScript client for any frontend
 ```
 
 ## Quickstart
 
 ```bash
-cp .env.example .env          # optionally add Azure OpenAI credentials
-docker compose up --build
+cp .env.example .env          # optionally pick a free AI provider (groq/gemini/ollama)
+docker compose up --build -d
 docker compose exec backend python -m app.seed
 ```
 
-| Service   | URL                        | Notes                                  |
-|-----------|----------------------------|----------------------------------------|
-| Editor    | http://localhost:3000      | Sign in: `admin@example.com` / `admin123` |
-| Preview   | http://localhost:3001      | Public site; lists published articles  |
-| API docs  | http://localhost:8000/docs | Swagger UI (use `/auth/token` to authorize) |
+| Service   | URL                        | Notes                                          |
+|-----------|----------------------------|------------------------------------------------|
+| Editor    | http://localhost:3000      | `admin@example.com`/`admin123` (org admin), `editor@example.com`/`editor123` (space editor) |
+| Preview   | http://localhost:3001      | Site frontend; published content + draft mode  |
+| API docs  | http://localhost:8000/docs | Swagger UI (use `/auth/token` to authorize)    |
 
-Then open **Entries → `welcome`** in the editor: type in the form and watch the
-preview update live; click text in the preview to jump to its field; double-click
-text in the preview to edit it inline.
+The seed creates a **Marketing Site** space (locales `en-US` + `fr`) with a
+`master` environment, an assembly-style model (`landing_page` → `hero` +
+`card[]`), localized entries, system roles, and two dev API keys
+(`cms_del_dev-delivery-token-0000`, `cms_pre_dev-preview-token-0000`) that the
+docker-compose defaults already reference — so everything works out of the box.
 
-AI features (Generate / Rewrite / Shorten / SEO / Check compliance) return
-`503` until `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT` are set. After
-configuring them, re-embed the seeded guidelines: **Guidelines → Re-ingest**
-(or `POST /guidelines/{id}/ingest`).
+Try it:
+
+- **Content → welcome**: type in the form, watch the split-view preview update
+  live; switch the `fr` locale tab; click preview text to jump to its field;
+  double-click to edit inline (works on nested hero/card blocks too).
+- **Content model**: drag-reorder fields, add a `reference_many` field, see the
+  live sample form.
+- **Settings → API keys**: create a key, copy the one-time token, open
+  "How to use" for curl/SDK snippets.
+
+```bash
+# Delivery API (published only, resolves references + locales):
+curl "http://localhost:8000/spaces/<spaceId>/environments/master/delivery/entries?content_type=landing_page&include=2&locale=fr" \
+  -H "Authorization: Bearer cms_del_dev-delivery-token-0000"
+```
+
+## Concepts (Contentful mapping)
+
+| Concept        | Here                                                        |
+|----------------|-------------------------------------------------------------|
+| Organization   | `Tenant`                                                     |
+| Space          | `Space` (owns locales, API keys, webhooks)                   |
+| Environment    | `Environment` (`master`, `staging`, …) — content types AND entries are environment-scoped; cloning copies both and **remaps reference ids** |
+| Content type   | `ContentType` with `FieldDef[]` schema                       |
+| Field types    | text, longtext, richtext, number, boolean, datetime, select (enum), media, media_many, reference, reference_many (assemblies), json, slug — each optionally `localized` |
+| Entry          | draft `fields` vs frozen `published_fields`; workflow draft → in_review → published → archived |
+| Localization   | localized fields store `{locale: value}`; delivery resolves via `?locale=` (fallback to default locale, `*` = raw maps) |
+| API keys       | `delivery` (published only), `preview` (drafts too), `management` (space CRUD); hashed at rest, environment-scopable, shown once |
+| Roles          | ORG_ADMIN, SPACE_ADMIN, EDITOR, AUTHOR, VIEWER (+ custom roles), assigned org-wide or per space; capability checks on every endpoint |
+| Webhooks       | per-space, event + content-type + environment filters, HMAC-signed (`X-CMS-Signature`), delivery log in the UI |
+
+## The three API planes
+
+- **Management** (`Authorization: Bearer <user JWT or cms_mgm_… key>`):
+  `/spaces`, `/spaces/{id}/environments` (+clone), `/spaces/{id}/api-keys`,
+  `/spaces/{id}/webhooks`, `/spaces/{id}/environments/{env}/content-types|entries|media`,
+  `/entries/{id}[/publish|/unpublish|/archive]`, bulk actions, `/users`, `/roles`, `/ai/*`.
+- **Delivery/Preview** (`cms_del_…` / `cms_pre_…` keys):
+  `/spaces/{id}/environments/{env}/delivery/entries|assets` with
+  `content_type`, `slug`, `q`, `locale`, `include` (0–3 link resolution),
+  `order`, `limit/skip`; plus `/token-info` to bootstrap from a token.
+- **Realtime**: `/ws/entries/{id}` for live preview + editor sync.
+
+## SDK
+
+`sdk/` ships a zero-dependency typed client (see [sdk/README.md](sdk/README.md)):
+
+```ts
+const client = createClient({ baseUrl, spaceId, environment: 'master', accessToken });
+const page = await client.getEntryBySlug({ contentType: 'landing_page', slug: 'home', include: 2 });
+const hero = page.resolve(page.entry?.fields.hero);   // resolves from includes
+```
+
+## AI (free-provider friendly)
+
+Set `AI_PROVIDER` in `.env` — every option uses the same OpenAI-compatible code path:
+
+| Provider     | Cost        | Embeddings | Notes                                   |
+|--------------|-------------|------------|-----------------------------------------|
+| `groq`       | free tier   | no → keyword retrieval | fastest, console.groq.com  |
+| `gemini`     | free tier   | yes (set `EMBEDDING_DIM=768`) | aistudio.google.com |
+| `ollama`     | 100% local  | yes (`EMBEDDING_DIM=768`) | needs `ollama serve` |
+| `openrouter` | free models | no → keyword retrieval | openrouter.ai           |
+| `openai`     | paid        | yes        |                                         |
+| `azure_openai`| paid       | yes        | uses the AZURE_OPENAI_* settings        |
+
+Features: generate entry from brief, rewrite/shorten/expand/SEO-tone a field,
+**title suggestions**, **SEO meta generation**, **locale translation**
+(`en-US → fr` button in the editor), and guideline compliance checks — all
+grounded in your ingested guidelines (vector search when embeddings exist,
+keyword retrieval otherwise; `/ai/status` reports the active mode).
+
+## Tests
+
+```bash
+docker compose up -d db
+docker compose run --rm --entrypoint sh backend -c "pip install -q -r requirements-dev.txt && pytest"
+```
+
+21 tests cover role/capability enforcement, API-key scoping (space +
+environment, drafts vs published, query-param auth), schema validation
+(localized required fields, unknown locales), reference integrity (existence,
+allowed types, self-reference), and environment cloning with reference remapping.
 
 ## Repository layout
 
 ```
-backend/                      FastAPI app
+backend/
   app/
-    main.py                   app wiring, router map, CORS, startup
-    config.py                 env-driven settings (pydantic-settings)
-    database.py               async engine + first-run create_all
-    seed.py                   sample tenant/user/types/entries/guidelines
-    models/                   Tenant, User, Role, Space | ContentType, Entry,
-                              MediaAsset | GuidelineDocument, GuidelineChunk(pgvector)
-    schemas/                  Pydantic request/response models (FieldDef lives here)
-    api/
-      auth.py                 /auth/login (JSON), /auth/token (form), /auth/me
-      content_types.py        /content-types CRUD (+ /content-types/spaces/all)
-      entries.py              /entries CRUD, /entries/{id}/transition, WS broadcast
-      delivery.py             /content/* (published), /preview/content/* (draft, secret)
-      ai.py                   /ai/generate-entry, /ai/transform-field, /ai/check-compliance
-      guidelines.py           /guidelines CRUD + /upload + /{id}/ingest + /search
-      media.py                /media uploads (served at /files/*)
-      ws.py                   /ws/entries/{entryId}
+    main.py                 app wiring, request logging + error middleware
+    config.py               env-driven settings (AI provider selection)
+    migrations.py            idempotent dev migrations (create_all + upgrades)
+    seed.py                  demo workspace (roles, locales, assemblies, API keys)
     core/
-      security.py             bcrypt + JWT
-      ws_manager.py           in-memory rooms (swap for Redis pub/sub to scale out)
-    ai/
-      client.py               THE provider abstraction (Azure OpenAI SDK; swap for LiteLLM here)
-      ingestion.py            extract -> chunk -> embed -> store
-      retrieval.py            cosine top-k over guideline chunks, tenant/space/type scoped
-      prompts.py              system prompt + all prompt builders (tune tone here)
-      services.py             orchestration used by /ai/* endpoints
-
-editor/                       Next.js visual editor (TypeScript, App Router)
-  src/lib/                    api client, types (mirror of schemas), postMessage
-                              protocol, useEntrySocket (WS hook)
-  src/app/
-    content-types/            list + [id] builder (fields, validations, AI hints)
-    entries/                  list + [id] editor (form | live preview | AI sidebar)
-    guidelines/               manage RAG source documents
-  src/components/
-    DynamicEntryForm.tsx      schema-driven form (add new field types here)
-    RichTextField.tsx         TipTap with a basic toolbar
-    AISidebar.tsx             Generate / Rewrite / Shorten / Expand / SEO / Compliance
-    LivePreviewPane.tsx       draft-mode iframe + postMessage plumbing
-    InlineEditorOverlay.tsx   same-origin iframe inline editing (idle when cross-origin)
-    InspectorMode.tsx         hook receiving field-selected / inline-edit messages
-
-preview/                      Next.js delivery + preview site
-  src/app/api/preview/        validates secret, enables draft mode, redirects
-  src/app/api/exit-preview/   disables draft mode
-  src/app/[type]/[slug]/      draft vs published fetch, renders EntryRenderer
-  src/components/
-    EntryRenderer.tsx         stamps data-cms-entry-id / data-cms-field-id / field-type
-    InlineEditingBridge.tsx   hover/click inspector, contentEditable commits,
-                              WS-driven router.refresh(), FIELD_UPDATED DOM patches
+      permissions.py         Capability enum + system roles + checks
+      security.py            bcrypt, JWT, API-token generate/hash
+      events.py              webhook dispatcher (async, HMAC-signed, logged)
+      validation.py          locale-aware schema validation + link collection
+      ws_manager.py          per-entry WebSocket rooms
+    models/                  tenancy (Tenant/Space/Environment/Role/assignments),
+                             content (ContentType/Entry/MediaAsset),
+                             api_keys, webhooks, guidelines (pgvector)
+    api/                     auth, spaces, api_keys, webhooks, content_types,
+                             entries, media, delivery (+/token-info), ai,
+                             guidelines, users, ws
+    ai/                      client (multi-provider), retrieval (vector|keyword),
+                             ingestion, prompts, services
+  tests/                     pytest suite (real Postgres)
+editor/                      Next.js visual editor (app shell, model builder,
+                             entries + locale tabs + pickers, media library,
+                             settings: api-keys/environments/webhooks/roles)
+preview/                     Next.js site (delivery/preview API, draft mode,
+                             nested assembly rendering, inline-editing bridge)
+sdk/                         @acme/cms-client TypeScript SDK
 ```
 
-## How the visual editing loop works
+## Production notes
 
-1. The editor embeds `preview:3001/api/preview?secret&type&slug` in an iframe →
-   Next.js **draft mode** cookie is set → pages fetch **draft** fields from
-   `backend:8000/preview/content/...`.
-2. The preview renders every field with `data-cms-entry-id` / `data-cms-field-id`
-   attributes (`EntryRenderer`).
-3. **Editor → preview**: on every keystroke the editor PATCHes the entry
-   (debounced) and simultaneously posts `cms:field-updated` into the iframe for
-   an instant DOM patch; the backend also broadcasts `entry.updated` over
-   `/ws/entries/{id}` which triggers `router.refresh()` in the preview.
-4. **Preview → editor**: clicking an element posts `cms:field-selected`
-   (the editor scrolls/highlights that field); double-click enables
-   `contentEditable`, and blur posts `cms:inline-edit` — the **editor** saves it
-   via the REST API (the preview never holds credentials).
-
-## AI / RAG pipeline
-
-1. **Ingest** (`POST /guidelines` or `/guidelines/upload`): text is chunked
-   (paragraph-aware, ~1200 chars with overlap) and embedded with the Azure
-   embedding deployment; vectors land in `guideline_chunks.embedding`
-   (`pgvector`, cosine).
-2. **Retrieve**: every AI call embeds its query (brief, field text, or content
-   being audited) and pulls top-k chunks scoped by tenant → space → content type.
-3. **Prompt**: `app/ai/prompts.py` injects retrieved guidelines as an
-   authoritative context block plus the content type schema (with per-field
-   `ai_hint`s and validation constraints).
-4. **Call**: `app/ai/client.py` is the only file that talks to the provider —
-   swap Azure SDK for LiteLLM/OpenAI/Bedrock by editing `chat()` and `embed()`.
-
-## Extension guide
-
-- **New field type**: add to `FieldType` (backend `schemas/content.py` + editor
-  `lib/types.ts`), render it in `DynamicEntryForm.tsx` and preview
-  `EntryRenderer.tsx`. Validation goes in `api/entries.py::validate_fields`.
-- **Real migrations**: replace `init_db()` create_all with Alembic
-  (`alembic init`, autogenerate from `app.models.Base`).
-- **Scale WebSockets**: back `core/ws_manager.py` with Redis pub/sub.
-- **Preview security**: replace the shared `PREVIEW_SECRET` with short-lived
-  tokens minted by the backend per editor session (`delivery.py` + `LivePreviewPane`).
-- **Real-time collaboration**: the editor intentionally does not merge remote
-  field values into a focused form (last-write-wins per field). For multi-user
-  editing, layer Yjs/CRDT on top of the existing WS channel.
-- **PDF/DOCX guidelines**: extend `ai/ingestion.py::extract_text` (pypdf,
-  python-docx).
-- **Roles**: guard routes with `Depends(require_permission("entries:publish"))`
-  from `api/deps.py`; seeded roles are `admin` (`*`) and `editor`.
-- **HTML sanitization**: rich text is trusted (TipTap + prompt contract). If
-  untrusted authors exist, sanitize on write (bleach) or render-time (DOMPurify).
-
-## Running without Docker
-
-```bash
-# Postgres with pgvector on :5432 (e.g. docker run pgvector/pgvector:pg16)
-cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload
-cd editor && npm install && npm run dev
-cd preview && npm install && npm run dev
-```
-
-Set `DATABASE_URL`, and for the frontends `NEXT_PUBLIC_API_URL=http://localhost:8000`,
-`CMS_API_URL=http://localhost:8000`, `NEXT_PUBLIC_PREVIEW_URL=http://localhost:3001`.
+- Replace `create_all` + `app/migrations.py` with Alembic.
+- Seeded dev tokens (`SEED_*_TOKEN`) are for local use — create real keys in
+  the UI and rotate `JWT_SECRET`.
+- The WebSocket manager is in-memory (single process); back it with Redis
+  pub/sub for multiple replicas.
+- Media is stored on local disk (`/files`); swap the save/delete/variant
+  helpers in `app/api/media.py` for S3/Azure Blob.
+- Editor holds JWTs in localStorage and embeds a preview key at build time —
+  move both behind httpOnly cookies / short-lived minted tokens for hardened
+  deployments.
