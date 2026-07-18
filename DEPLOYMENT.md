@@ -40,11 +40,31 @@ Fork the repo on GitHub (Vercel/Render deploy straight from your fork), then
 
 ### 3. Deploy the backend (Render)
 
-Render → **New → Web Service** → pick your fork, root directory `backend`.
+This is a monorepo — every app (`backend/`, `editor/`, `marketing/`, …) has
+its **own** Dockerfile in its own folder, and there is no Dockerfile at the
+repo root. If Render's build log says
+`failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory`,
+it built from the repo root instead of `backend/` — fix the **Root
+Directory** (see below), don't touch the Dockerfile.
 
-- Runtime: Python 3.12 (Render reads `requirements.txt`)
-- Build command: `pip install -r requirements.txt`
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+Two ways to deploy, pick one:
+
+**A. Blueprint (recommended)** — Render → **New → Blueprint** → select your
+fork. Render reads [`render.yaml`](render.yaml) at the repo root and creates
+the service with the right `rootDir`/`dockerfilePath` automatically; you only
+fill in the `sync: false` env vars it prompts for.
+
+**B. Manual web service** — Render → **New → Web Service** → pick your fork,
+then in the service's **Settings**:
+- **Root Directory**: `backend` (this is what was missing — it's both the
+  build context and where Render looks for `Dockerfile`)
+- **Environment**: `Docker` (Dockerfile Path defaults to `Dockerfile`, now
+  resolved relative to the root directory above) — or pick **Python 3** to
+  skip Docker entirely: Build command `pip install -r requirements.txt`,
+  Start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+
+Either path works; the Dockerfile's `CMD` already reads `$PORT` (falling back
+to 8000 for local `docker run`), which Render's Docker environment requires.
 
 Environment variables (see `.env.example` for the full annotated list):
 

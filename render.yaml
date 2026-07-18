@@ -1,0 +1,43 @@
+# Render Blueprint (spec 014 addendum) — deploys the FastAPI backend as a
+# Docker web service from this monorepo. Render's default "New Web Service"
+# flow builds from the repo root and looks for ./Dockerfile, which doesn't
+# exist here (each app has its own Dockerfile in its own folder) — that's
+# what caused "open Dockerfile: no such file or directory".
+#
+# Use this file two ways:
+#   1. Blueprint deploy: Render dashboard -> New -> Blueprint -> point at this
+#      repo; it reads this file and creates the service(s) automatically.
+#   2. Manual service you already created: open its Settings and set
+#      "Root Directory" to `backend` (Dockerfile Path becomes `Dockerfile`,
+#      relative to that root) — same fix, no blueprint required.
+#
+# The Next.js apps (editor/marketing/preview/superadmin) are NOT declared
+# here — DEPLOYMENT.md deploys those to Vercel instead, one project per app
+# with "Root Directory" set to the app folder.
+services:
+  - type: web
+    name: ondros-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false # postgresql+asyncpg://... from Neon/Supabase — set manually
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BACKEND_URL
+        sync: false # https://<this-service>.onrender.com
+      - key: FRONTEND_URL
+        sync: false # https://<your-editor>.vercel.app
+      - key: CORS_ORIGINS
+        sync: false # comma-separated editor/preview/marketing/superadmin URLs
+      - key: AUTH_DEV_MODE
+        value: "false"
+      - key: BILLING_DEV_MODE
+        value: "true"
+      - key: AI_PROVIDER
+        value: ""
+      - key: AI_API_KEY
+        sync: false
