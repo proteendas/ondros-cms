@@ -1,4 +1,4 @@
-# @acme/cms-client
+# @ondros/sdk
 
 Typed, zero-dependency client for the CMS **delivery** and **preview** APIs.
 Use it from any frontend (Next.js, React, Remix, Node scripts, edge functions).
@@ -15,7 +15,7 @@ npm install file:../sdk        # from a sibling app
 ## Quick start
 
 ```ts
-import { createClient } from '@acme/cms-client';
+import { createClient } from '@ondros/sdk';
 
 const client = createClient({
   baseUrl: process.env.CMS_URL!,          // e.g. http://localhost:8000
@@ -57,7 +57,7 @@ Create keys under **Settings → API keys** in the editor (or `POST /spaces/{id}
 
 ```ts
 // app/articles/[slug]/page.tsx
-import { createClient } from '@acme/cms-client';
+import { createClient } from '@ondros/sdk';
 
 const client = createClient({
   baseUrl: process.env.CMS_URL!,

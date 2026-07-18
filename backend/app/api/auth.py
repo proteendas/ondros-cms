@@ -167,8 +167,8 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)):
     verify_url = f"{settings.frontend_url}/verify-email?token={raw_token}"
     await send_email(
         user.email,
-        "Verify your email — Compose CMS",
-        f"<h2>Welcome to Compose CMS</h2><p>Confirm your email to activate "
+        f"Verify your email — {settings.brand_name}",
+        f"<h2>Welcome to {settings.brand_name}</h2><p>Confirm your email to activate "
         f"<strong>{account.name}</strong>.</p>{link_button(verify_url, 'Verify email')}",
     )
     return SignupResponse(
@@ -291,7 +291,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Dep
         reset_url = f"{settings.frontend_url}/reset-password?token={raw}"
         await send_email(
             user.email,
-            "Reset your password — Compose CMS",
+            f"Reset your password — {settings.brand_name}",
             f"<p>Someone requested a password reset for this address.</p>"
             f"{link_button(reset_url, 'Reset password')}"
             f"<p style='font-family:sans-serif;color:#667085;font-size:13px'>"

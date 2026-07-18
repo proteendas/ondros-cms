@@ -1,11 +1,11 @@
 /**
- * @yourcms/sdk — typed client for the CMS delivery & preview APIs.
+ * @ondros/sdk — typed client for the CMS delivery & preview APIs.
  *
  * Zero dependencies; works in Node 18+, browsers, Next.js (server & client
  * components), and edge runtimes — anywhere `fetch` exists.
  *
  * ```ts
- * import { createClient } from '@yourcms/sdk';
+ * import { createClient } from '@ondros/sdk';
  *
  * const client = createClient({
  *   spaceId: 'abc123',

@@ -1,10 +1,10 @@
 {
-  "name": "yourcms-cli",
+  "name": "ondros-cli",
   "version": "1.0.0",
   "description": "CLI for the CMS: login, space init, content-type import/export, TypeScript type generation",
   "type": "module",
   "bin": {
-    "yourcms-cli": "./bin/yourcms-cli.mjs"
+    "ondros-cli": "./bin/ondros-cli.mjs"
   },
   "engines": {
     "node": ">=18"

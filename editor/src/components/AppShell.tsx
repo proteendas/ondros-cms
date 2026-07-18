@@ -3,11 +3,14 @@
 /**
  * Contentful-style chrome: top bar (brand, ACCOUNT switcher, space + environment
  * selectors, user menu) and left sidebar navigation. Hidden on auth pages.
+ * Branding comes from lib/brand.ts (spec 007); icons from ui/Icon (spec 008).
  */
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
+import Icon, { IconName } from '@/components/ui/Icon';
 import { setTokens, switchAccount } from '@/lib/api';
+import { BRAND } from '@/lib/brand';
 import { useWorkspace } from '@/lib/workspace';
 
 const CHROME_FREE_PREFIXES = [
@@ -15,24 +18,24 @@ const CHROME_FREE_PREFIXES = [
   '/reset-password', '/accept-invite', '/onboarding',
 ];
 
-const NAV = [
+const NAV: { section: string; items: { href: string; icon: IconName; label: string }[] }[] = [
   { section: 'Content', items: [
-    { href: '/content-types', icon: '🧩', label: 'Content model' },
-    { href: '/entries', icon: '📄', label: 'Content' },
-    { href: '/media', icon: '🖼', label: 'Media' },
-    { href: '/guidelines', icon: '📐', label: 'Guidelines' },
+    { href: '/content-types', icon: 'content-model', label: 'Content model' },
+    { href: '/entries', icon: 'content', label: 'Content' },
+    { href: '/media', icon: 'media', label: 'Media' },
+    { href: '/guidelines', icon: 'guidelines', label: 'Guidelines' },
   ]},
   { section: 'Space settings', items: [
-    { href: '/settings/locales', icon: '🌐', label: 'Locales' },
-    { href: '/settings/api-keys', icon: '🔑', label: 'API keys' },
-    { href: '/settings/environments', icon: '🌿', label: 'Environments' },
-    { href: '/settings/webhooks', icon: '📡', label: 'Webhooks' },
-    { href: '/settings/audit-log', icon: '🧾', label: 'Audit log' },
+    { href: '/settings/locales', icon: 'locale', label: 'Locales' },
+    { href: '/settings/api-keys', icon: 'api-key', label: 'API keys' },
+    { href: '/settings/environments', icon: 'environment', label: 'Environments' },
+    { href: '/settings/webhooks', icon: 'webhook', label: 'Webhooks' },
+    { href: '/settings/audit-log', icon: 'audit', label: 'Audit log' },
   ]},
   { section: 'Account', items: [
-    { href: '/settings/roles', icon: '👥', label: 'Roles & users' },
-    { href: '/settings/security', icon: '🛡', label: 'Security (SSO)' },
-    { href: '/settings/billing', icon: '💳', label: 'Billing & usage' },
+    { href: '/settings/roles', icon: 'users', label: 'Roles & users' },
+    { href: '/settings/security', icon: 'security', label: 'Security (SSO)' },
+    { href: '/settings/billing', icon: 'billing', label: 'Billing & usage' },
   ]},
 ];
 
@@ -62,7 +65,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="shell">
       <header className="topbar">
         <Link href="/" className="brand" style={{ textDecoration: 'none' }}>
-          <span className="logo">◆</span> Compose CMS
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={BRAND.logoIcon} alt="" width={26} height={26} style={{ borderRadius: 7 }} />
+          {BRAND.name}
         </Link>
         <span className="divider" />
         {accounts.length > 1 && (
@@ -141,7 +146,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     className={`nav-item${active ? ' active' : ''}`}
                   >
-                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-icon">
+                      <Icon name={item.icon} size={15} />
+                    </span>
                     {item.label}
                   </Link>
                 );

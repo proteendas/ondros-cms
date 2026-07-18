@@ -1,5 +1,5 @@
 {
-  "name": "@yourcms/sdk",
+  "name": "@ondros/sdk",
   "version": "2.0.0",
   "description": "Typed client for the CMS delivery & preview APIs (retry, SWR cache, link resolution, field filters)",
   "main": "dist/index.js",

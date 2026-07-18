@@ -17,6 +17,7 @@
  */
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { MSG } from '@/lib/protocol';
 import type { ContentType, Entry } from '@/lib/types';
 
@@ -92,13 +93,13 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
         </span>
         <span className="spacer" />
         <button className="btn secondary small" onClick={toggleInspector}>
-          {inspector ? '◉ Inspector on' : '○ Inspector off'}
+          {inspector ? <><Icon name="inspector-on" size={13} /> Inspector on</> : <><Icon name="inspector-off" size={13} /> Inspector off</>}
         </button>
         <button className="btn secondary small" onClick={() => setNonce((n) => n + 1)}>
-          ⟳ Reload
+          <Icon name="reload" size={13} /> Reload
         </button>
         <a className="btn secondary small" href={src} target="_blank" rel="noreferrer">
-          Open ↗
+          Open <Icon name="open-external" size={12} />
         </a>
       </div>
       <iframe

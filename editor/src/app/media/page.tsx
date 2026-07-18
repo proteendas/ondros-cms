@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { API_URL, api, getToken } from '@/lib/api';
 import { ConfirmDialog, Modal, formatBytes, formatDate, useToast } from '@/components/ui';
 import { assetThumb } from '@/components/MediaPicker';
@@ -111,7 +112,7 @@ export default function MediaLibraryPage() {
         <span className="spacer" />
         {can('manage_media') && (
           <label className="btn" style={{ cursor: 'pointer' }}>
-            {uploading ? 'Uploading…' : '⬆ Upload'}
+            {uploading ? 'Uploading…' : <><Icon name="upload" size={14} /> Upload</>}
             <input type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
           </label>
         )}

@@ -22,7 +22,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    app_name: str = "Headless CMS"
+    # Single change-point for the product brand (spec 007). Frontend twin:
+    # editor/src/lib/brand.ts
+    brand_name: str = "Ondros CMS"
+    brand_short: str = "Ondros"
+
+    app_name: str = "Ondros CMS"
     database_url: str = "postgresql+asyncpg://cms:cms@localhost:5432/cms"
 
     # Auth
@@ -42,7 +47,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from: str = "Compose CMS <no-reply@localhost>"
+    smtp_from: str = "Ondros CMS <no-reply@localhost>"
 
     # Global social login (OIDC direct against Google / Microsoft).
     google_client_id: str = ""

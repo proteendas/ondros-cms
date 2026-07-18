@@ -1,4 +1,4 @@
-# Compose CMS — a Contentful-style headless CMS
+# Ondros CMS — a Contentful-style headless CMS
 
 FastAPI + Next.js + Postgres/PgVector. Multi-tenant **spaces & environments**,
 rich **content modeling** (references/assemblies, localization, media), split
@@ -32,6 +32,7 @@ docker compose exec backend python -m app.seed
 |-----------|----------------------------|------------------------------------------------|
 | Editor    | http://localhost:3000      | `admin@example.com`/`admin123` (org admin), `editor@example.com`/`editor123` (space editor) |
 | Preview   | http://localhost:3001      | Site frontend; published content + draft mode  |
+| Marketing | http://localhost:3002      | Public Ondros CMS brand site (landing/features/pricing/support) |
 | API docs  | http://localhost:8000/docs | Swagger UI (use `/auth/token` to authorize)    |
 
 The seed creates a **Marketing Site** space (locales `en-US` + `fr`) with a
@@ -153,7 +154,10 @@ editor/                      Next.js visual editor (app shell, model builder,
                              settings: api-keys/environments/webhooks/roles)
 preview/                     Next.js site (delivery/preview API, draft mode,
                              nested assembly rendering, inline-editing bridge)
-sdk/                         @acme/cms-client TypeScript SDK
+marketing/                   Next.js public marketing site (Ondros brand,
+                             pricing, support; CTAs -> app via env URLs)
+sdk/                         @ondros/sdk TypeScript SDK
+cli/                         ondros-cli (login, types export/import, codegen)
 ```
 
 ## Production notes

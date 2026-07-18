@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 
 import { API_URL, api, login, setTokens } from '@/lib/api';
+import { BRAND } from '@/lib/brand';
 
 interface SsoLookup {
   sso_available: boolean;
@@ -79,18 +80,10 @@ export default function LoginPage() {
     <div className="login-wrap">
       <form className="login-card" onSubmit={onSubmit}>
         <div className="row" style={{ marginBottom: 18 }}>
-          <span
-            style={{
-              width: 34, height: 34, borderRadius: 9, color: '#fff',
-              background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 800,
-            }}
-          >
-            ◆
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={BRAND.logoIcon} alt={`${BRAND.name} logo`} width={34} height={34} style={{ borderRadius: 9 }} />
           <div>
-            <h1 style={{ margin: 0, fontSize: 18 }}>Compose CMS</h1>
+            <h1 style={{ margin: 0, fontSize: 18 }}>{BRAND.name}</h1>
             <p className="muted" style={{ margin: 0, fontSize: 12 }}>Sign in to your workspace</p>
           </div>
         </div>

@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 import { Modal, formatDate, useToast } from '@/components/ui';
 import type { Entry, EntryVersionFull, EntryVersionMeta } from '@/lib/types';
@@ -103,7 +104,7 @@ export default function VersionHistory({
                 </h3>
                 <span className="spacer" />
                 <button className="btn" disabled={busy} onClick={() => restore(selected.version)}>
-                  {busy ? 'Restoring…' : `⤺ Restore v${selected.version}`}
+                  {busy ? 'Restoring…' : <><Icon name="restore" size={13} /> Restore v{selected.version}</>}
                 </button>
               </div>
               {diffKeys.length === 0 && (

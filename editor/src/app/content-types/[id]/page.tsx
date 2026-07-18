@@ -9,6 +9,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 import { ConfirmDialog, Modal, useToast } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
@@ -157,7 +158,7 @@ export default function ContentTypeBuilderPage() {
           </div>
 
           {fields.map((f, i) => {
-            const info = FIELD_TYPE_INFO[f.type] ?? { label: f.type, icon: '?' };
+            const info = FIELD_TYPE_INFO[f.type] ?? { label: f.type, icon: 'field-text' as const };
             return (
               <div
                 key={`${f.id}-${i}`}
@@ -171,9 +172,9 @@ export default function ContentTypeBuilderPage() {
                   setDragIndex(null);
                 }}
               >
-                <span className="drag-handle" title="Drag to reorder">⠿</span>
-                <span className="type-icon" style={{ width: 28, height: 28, fontSize: 12 }}>
-                  {info.icon}
+                <span className="drag-handle" title="Drag to reorder"><Icon name="drag" size={14} /></span>
+                <span className="type-icon" style={{ width: 28, height: 28 }}>
+                  <Icon name={info.icon} size={14} />
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="f-name">
@@ -192,15 +193,15 @@ export default function ContentTypeBuilderPage() {
                       <span className="chip">→ any type</span>
                     ))}
                 </div>
-                <button className="btn ghost small" onClick={() => move(i, i - 1)} title="Move up">↑</button>
-                <button className="btn ghost small" onClick={() => move(i, i + 1)} title="Move down">↓</button>
+                <button className="btn ghost small" onClick={() => move(i, i - 1)} title="Move up"><Icon name="move-up" size={13} /></button>
+                <button className="btn ghost small" onClick={() => move(i, i + 1)} title="Move down"><Icon name="move-down" size={13} /></button>
                 <button className="btn secondary small" onClick={() => setDialogIndex(i)}>Edit</button>
                 <button
                   className="btn ghost small"
                   style={{ color: 'var(--danger)' }}
                   onClick={() => mutateFields(fields.filter((_, j) => j !== i))}
                 >
-                  ✕
+                  <Icon name="close" size={13} />
                 </button>
               </div>
             );
@@ -282,10 +283,10 @@ function SampleWidget({ field }: { field: FieldDef }) {
       );
     case 'media':
     case 'media_many':
-      return <div className="input" style={{ color: 'var(--text-3)' }}>🖼 Choose from media library…</div>;
+      return <div className="input" style={{ color: 'var(--text-3)' }}><Icon name="media" size={13} /> Choose from media library…</div>;
     case 'reference':
     case 'reference_many':
-      return <div className="input" style={{ color: 'var(--text-3)' }}>🔗 Link entr{field.type === 'reference' ? 'y' : 'ies'}…</div>;
+      return <div className="input" style={{ color: 'var(--text-3)' }}><Icon name="field-reference" size={13} /> Link entr{field.type === 'reference' ? 'y' : 'ies'}…</div>;
     case 'json':
       return <textarea className="input mono" rows={2} disabled placeholder='{ "key": "value" }' />;
     default:
@@ -354,7 +355,7 @@ function FieldDialog({
                   onClick={() => patch({ type: t })}
                   title={info.hint}
                 >
-                  <div style={{ fontSize: 15 }}>{info.icon}</div>
+                  <div><Icon name={info.icon} size={16} /></div>
                   <div className="tile-name">{info.label}</div>
                 </button>
               );

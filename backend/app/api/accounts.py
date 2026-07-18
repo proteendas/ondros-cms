@@ -171,7 +171,7 @@ async def create_invitation(
     accept_url = f"{settings.frontend_url}/accept-invite/{raw}"
     await send_email(
         payload.email,
-        f"You're invited to {account.name} — Compose CMS",
+        f"You're invited to {account.name} — {settings.brand_name}",
         f"<p>You've been invited to join <strong>{account.name}</strong> as "
         f"<strong>{role.name}</strong>.</p>{link_button(accept_url, 'Accept invitation')}",
     )

@@ -20,21 +20,23 @@ export type FieldType =
   | 'json'
   | 'slug';
 
-export const FIELD_TYPE_INFO: Record<FieldType, { label: string; icon: string; hint: string }> = {
-  text: { label: 'Short text', icon: 'Aa', hint: 'Titles, names, labels' },
-  longtext: { label: 'Long text', icon: '¶', hint: 'Multi-line plain text' },
-  richtext: { label: 'Rich text', icon: '≣', hint: 'Formatted HTML content' },
-  number: { label: 'Number', icon: '#', hint: 'Integer or decimal' },
-  boolean: { label: 'Boolean', icon: '◐', hint: 'True / false toggle' },
-  datetime: { label: 'Date & time', icon: '📅', hint: 'ISO date/time' },
-  date: { label: 'Date (legacy)', icon: '📅', hint: 'Use Date & time instead' },
-  select: { label: 'Enum (select)', icon: '☰', hint: 'One of a fixed list' },
-  media: { label: 'Media', icon: '🖼', hint: 'One asset from the library' },
-  media_many: { label: 'Media (many)', icon: '🖼+', hint: 'Ordered list of assets' },
-  reference: { label: 'Reference', icon: '🔗', hint: 'Link to one entry' },
-  reference_many: { label: 'References (many)', icon: '🔗+', hint: 'Ordered links — assemblies' },
-  json: { label: 'JSON', icon: '{}', hint: 'Arbitrary JSON object' },
-  slug: { label: 'Slug', icon: '/', hint: 'URL-safe identifier' },
+import type { IconName } from '@/components/ui/Icon';
+
+export const FIELD_TYPE_INFO: Record<FieldType, { label: string; icon: IconName; hint: string }> = {
+  text: { label: 'Short text', icon: 'field-text', hint: 'Titles, names, labels' },
+  longtext: { label: 'Long text', icon: 'field-longtext', hint: 'Multi-line plain text' },
+  richtext: { label: 'Rich text', icon: 'field-richtext', hint: 'Formatted HTML content' },
+  number: { label: 'Number', icon: 'field-number', hint: 'Integer or decimal' },
+  boolean: { label: 'Boolean', icon: 'field-boolean', hint: 'True / false toggle' },
+  datetime: { label: 'Date & time', icon: 'field-datetime', hint: 'ISO date/time' },
+  date: { label: 'Date (legacy)', icon: 'field-datetime', hint: 'Use Date & time instead' },
+  select: { label: 'Enum (select)', icon: 'field-select', hint: 'One of a fixed list' },
+  media: { label: 'Media', icon: 'field-media', hint: 'One asset from the library' },
+  media_many: { label: 'Media (many)', icon: 'field-media-many', hint: 'Ordered list of assets' },
+  reference: { label: 'Reference', icon: 'field-reference', hint: 'Link to one entry' },
+  reference_many: { label: 'References (many)', icon: 'field-reference-many', hint: 'Ordered links — assemblies' },
+  json: { label: 'JSON', icon: 'field-json', hint: 'Arbitrary JSON object' },
+  slug: { label: 'Slug', icon: 'field-slug', hint: 'URL-safe identifier' },
 };
 
 export interface FieldValidations {

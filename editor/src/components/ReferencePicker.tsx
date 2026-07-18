@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 import { Modal } from '@/components/ui';
 import type { ContentType, Entry, EntryList } from '@/lib/types';
@@ -99,22 +100,22 @@ export default function ReferencePicker({
               setDragIndex(null);
             }}
           >
-            {multiple && <span className="drag-handle">⠿</span>}
-            <span style={{ fontSize: 14 }}>🔗</span>
+            {multiple && <span className="drag-handle"><Icon name="drag" size={13} /></span>}
+            <Icon name="field-reference" size={14} />
             <span className="ref-title">
               {entry ? displayTitle(entry, ct, defaultLocale) : `${id.slice(0, 8)}…`}
             </span>
             {entry && <span className={`badge ${entry.status}`}>{entry.status.replace('_', ' ')}</span>}
             {ct && <span className="ref-type">{ct.name}</span>}
             <a className="icon-btn" href={`/entries/${id}`} target="_blank" rel="noreferrer" title="Open entry">
-              ↗
+              <Icon name="open-external" size={12} />
             </a>
             <button
               className="icon-btn"
               title="Remove link"
               onClick={() => commit(ids.filter((x) => x !== id))}
             >
-              ✕
+              <Icon name="close" size={12} />
             </button>
           </div>
         );
@@ -229,7 +230,7 @@ function ReferenceSearchModal({
           const ct = typesById.get(entry.content_type_id);
           return (
             <div key={entry.id} className="ref-item" style={{ cursor: 'pointer' }} onClick={() => onPick(entry)}>
-              <span style={{ fontSize: 14 }}>📄</span>
+              <Icon name="content" size={14} />
               <span className="ref-title">{displayTitle(entry, ct, defaultLocale)}</span>
               <span className={`badge ${entry.status}`}>{entry.status.replace('_', ' ')}</span>
               <span className="ref-type">{ct?.name}</span>

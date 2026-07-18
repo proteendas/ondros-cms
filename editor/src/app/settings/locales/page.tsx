@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 import { ConfirmDialog, Modal, useToast } from '@/components/ui';
 import { LOCALE_CATALOG } from '@/lib/localeCatalog';
@@ -67,7 +68,7 @@ export default function LocalesPage() {
               <tr key={row.id} style={{ opacity: row.is_active ? 1 : 0.55 }}>
                 <td>
                   <code>{row.code}</code>{' '}
-                  {row.is_default && <span className="chip">default ★</span>}
+                  {row.is_default && <span className="chip">default <Icon name="star" size={10} /></span>}
                 </td>
                 <td>{row.name}</td>
                 <td>

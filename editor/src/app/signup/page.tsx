@@ -4,7 +4,9 @@
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { api } from '@/lib/api';
+import { BRAND } from '@/lib/brand';
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -53,7 +55,9 @@ export default function SignupPage() {
     return (
       <div className="login-wrap">
         <div className="login-card">
-          <h1 style={{ fontSize: 18 }}>Check your email 📬</h1>
+          <h1 style={{ fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="email" size={18} /> Check your email
+          </h1>
           <p className="muted">{done.message}</p>
           {done.dev_verification_token && (
             <p className="muted small">
@@ -71,8 +75,12 @@ export default function SignupPage() {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
-        <h1 style={{ fontSize: 18, marginTop: 0 }}>Create your account</h1>
-        <p className="muted" style={{ marginTop: 0 }}>Your company workspace on Compose CMS.</p>
+        <div className="row" style={{ marginBottom: 12 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={BRAND.logoIcon} alt={`${BRAND.name} logo`} width={30} height={30} style={{ borderRadius: 8 }} />
+          <h1 style={{ fontSize: 18, margin: 0 }}>Create your account</h1>
+        </div>
+        <p className="muted" style={{ marginTop: 0 }}>Your company workspace on {BRAND.name}.</p>
 
         <label className="field-label">Company / account name</label>
         <input

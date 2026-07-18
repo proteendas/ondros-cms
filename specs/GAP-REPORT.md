@@ -1,4 +1,4 @@
-# Gap Report — SaaS Upgrade (Accounts, SSO, Locales, SDK, Billing, Audit)
+# Gap Report — SaaS Upgrade (Accounts, SSO, Locales, SDK, Billing, Audit, Brand)
 
 Status roll-up for the spec-driven upgrade. Per-workstream detail lives in the
 numbered specs. Legend: ✅ implemented & tested · 🟡 implemented, needs
@@ -60,11 +60,11 @@ external credentials/deps to fully activate · ⬜ next.
   dropdown for any active pair.
 
 ### WS4 — SDK, CLI, OpenAPI (spec 004) ✅
-- `@yourcms/sdk` v2: `createClient({spaceId, environmentId, accessToken, host,
+- `@ondros/sdk` v2: `createClient({spaceId, environmentId, accessToken, host,
   previewHost})`, retry/backoff+jitter, stale-while-revalidate cache,
   **`fields.*` filters** (backend support added), server link resolution +
   `resolveLinks()` deep inliner.
-- `yourcms-cli` (zero-dep Node 18+): login (auto-refresh), spaces,
+- `ondros-cli` (zero-dep Node 18+): login (auto-refresh), spaces,
   types export/import, `generate-types` → typed interfaces incl. enum unions.
 - `scripts/export_openapi.py` → `openapi.json` (84 paths).
 - ⬜ npm publish (needs org/token).
@@ -87,10 +87,41 @@ external credentials/deps to fully activate · ⬜ next.
 - Editor: 🕘 **History panel** (per-field diff vs current, one-click restore);
   Settings → Audit log page with filters.
 
+### WS7 — Rebrand → Ondros CMS (spec 007) ✅ (placeholder artwork)
+- Single change-point branding: `editor/src/lib/brand.ts` (BRAND config) +
+  `settings.brand_name` (backend); shell/login/signup/titles/emails read it.
+- `/branding/` assets: placeholder `logo.svg` + `logo-icon.svg` (marked
+  `TODO: replace placeholder logo`) + generated `favicon.ico`, wired into
+  favicon metadata, top bar, auth pages, marketing site.
+- Package renames: `@ondros/sdk`, `ondros-cli` (rc file `~/.ondrosrc.json`),
+  `ondros-editor`, `ondros-preview`; API-key snippet + README updated.
+- ⬜ Final logo artwork swap-in (manual design task).
+
+### WS8 — Icon migration → Bootstrap Icons (spec 008) ✅
+- `react-bootstrap-icons` is the single icon dependency; central
+  `components/ui/Icon.tsx` maps ~60 semantic names (edit, delete, webhook,
+  api-key, environment, locale, field types…) to Bootstrap Icons.
+- Every emoji/glyph icon replaced across: sidebar nav, dashboard, entries list
+  + editor (history/panes), content-type builder (drag/reorder/type glyphs via
+  `FIELD_TYPE_INFO`), media library + pickers, reference picker, AI sidebar,
+  settings pages, modals/empty states. Preview overlay hover tag embeds the
+  Bootstrap `pencil-fill` SVG inline (no dep added to that bundle).
+
+### WS9 — Marketing site (spec 009) ✅ (placeholder external links)
+- New decoupled `marketing/` Next.js app on :3002 (own Dockerfile + compose
+  service): landing (hero/features/how-it-works), features, pricing (tiers +
+  comparison table + billing FAQ), support (docs/email/community/status +
+  contact form), site-wide nav + footer.
+- All Login / Get Started CTAs resolve from `NEXT_PUBLIC_APP_LOGIN_URL` /
+  `NEXT_PUBLIC_APP_SIGNUP_URL` — no duplicate login form.
+- Same design tokens as the editor (indigo/slate, same font stack), Bootstrap
+  Icons, responsive grids.
+- ⬜ Real docs/community/status destinations.
+
 ### Cross-cutting
 - Alembic scaffold + `0001_saas_upgrade` revision (production path); dev keeps
   boot-time migrations. OpenAPI export. New deps: authlib, stripe,
-  email-validator, alembic.
+  email-validator, alembic; frontend: react-bootstrap-icons.
 
 ## 3. Verification
 
@@ -113,6 +144,9 @@ external credentials/deps to fully activate · ⬜ next.
 5. **Stripe hardening** — metered API-call reporting, seat quantity sync,
    proration, dunning states surfaced in the UI.
 6. **SDK codegen v2** — locale-map aware generic types (`CmsEntry<TFields>`),
-   watch mode, publish `@yourcms/sdk` + `yourcms-cli` to npm.
+   watch mode, publish `@ondros/sdk` + `ondros-cli` to npm.
 7. **Ops** — Alembic autogenerate CI check, rate limiting per key (config
    exists on ApiKey), Redis-backed WS manager for multi-replica.
+8. **Brand polish** — final Ondros logo artwork (replace placeholder SVGs +
+   regenerate favicon), real docs/community/status links on the marketing
+   site, OG images per marketing page.

@@ -1,4 +1,4 @@
-# 004 — SDK (@yourcms/sdk), CLI (yourcms-cli), OpenAPI
+# 004 — SDK (@ondros/sdk), CLI (ondros-cli), OpenAPI
 
 ## Current state (before this spec)
 
@@ -10,7 +10,7 @@
 
 ## Requirements
 
-- Package renamed **`@yourcms/sdk`**; config `{spaceId, environmentId,
+- Package renamed **`@ondros/sdk`**; config `{spaceId, environmentId,
   accessToken, host, previewHost?}` — previewHost used automatically for
   `cms_pre_*` tokens.
 - `getEntries({contentType, locale, 'fields.<id>': value, limit, skip, ...})`.
@@ -19,7 +19,7 @@
   `cache: false`).
 - Link resolution to `include` depth (server resolves; SDK exposes
   `resolve()` and `resolveLinks()` deep-inliner).
-- `yourcms-cli`: login, spaces list, content-type export/import,
+- `ondros-cli`: login, spaces list, content-type export/import,
   `generate-types` (content types → TypeScript interfaces).
 - OpenAPI 3 spec exported to `openapi.json` via script.
 
@@ -31,11 +31,11 @@
 ## CLI commands
 
 ```
-yourcms-cli login --host http://localhost:8000        # stores JWT in ~/.yourcmsrc.json
-yourcms-cli spaces
-yourcms-cli types export --space <id> --env master -o types.json
-yourcms-cli types import --space <id> --env master -i types.json
-yourcms-cli generate-types --space <id> --env master -o cms-types.d.ts
+ondros-cli login --host http://localhost:8000        # stores JWT in ~/.ondrosrc.json
+ondros-cli spaces
+ondros-cli types export --space <id> --env master -o types.json
+ondros-cli types import --space <id> --env master -i types.json
+ondros-cli generate-types --space <id> --env master -o cms-types.d.ts
 ```
 
 ## Acceptance criteria

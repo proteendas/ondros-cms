@@ -20,6 +20,7 @@ import AISidebar from '@/components/AISidebar';
 import DynamicEntryForm from '@/components/DynamicEntryForm';
 import LivePreviewPane, { LivePreviewHandle } from '@/components/LivePreviewPane';
 import VersionHistory from '@/components/VersionHistory';
+import Icon from '@/components/ui/Icon';
 import { useInspectorMessages } from '@/components/InspectorMode';
 import { api } from '@/lib/api';
 import { useEntrySocket } from '@/lib/useEntrySocket';
@@ -253,7 +254,7 @@ export default function EntryEditorPage() {
           ))}
         </div>
         <button className="btn secondary small" onClick={() => setShowHistory(true)}>
-          🕘 History
+          <Icon name="history" size={13} /> History
         </button>
         {can('publish_entries') &&
           NEXT_STATUS[entry.status].map(({ label, to, primary }) => (

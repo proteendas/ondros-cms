@@ -24,9 +24,12 @@ Rules:
 | 1 | [001-accounts-onboarding.md](001-accounts-onboarding.md) | Signup, email verification, refresh tokens, invitations, multi-account membership, RLS | **Implemented** (SMTP + prod RLS role pending) |
 | 2 | [002-sso.md](002-sso.md) | OIDC (Google/Microsoft/custom), SAML config, JIT provisioning, enforcement | **OIDC implemented** (needs IdP creds to activate); SAML scaffolded |
 | 3 | [003-dynamic-locales.md](003-dynamic-locales.md) | First-class Locale model, ISO catalog, fallback chains, AI translate any pair | **Implemented** |
-| 4 | [004-sdk-cli-openapi.md](004-sdk-cli-openapi.md) | `@yourcms/sdk` v2 (retry/cache/filters/link resolution), `yourcms-cli`, OpenAPI export | **Implemented** |
+| 4 | [004-sdk-cli-openapi.md](004-sdk-cli-openapi.md) | `@ondros/sdk` v2 (retry/cache/filters/link resolution), `ondros-cli`, OpenAPI export | **Implemented** |
 | 5 | [005-billing-usage.md](005-billing-usage.md) | Plans, subscriptions, usage counters, limit enforcement, Stripe | **Implemented** (dev mode; Stripe needs keys) |
 | 6 | [006-audit-versioning.md](006-audit-versioning.md) | Audit log, entry version snapshots, diff + restore | **Implemented** |
+| 7 | [007-rebrand-branding.md](007-rebrand-branding.md) | Rebrand → Ondros CMS, central brand config, logo assets | **Implemented** (placeholder artwork) |
+| 8 | [008-icon-migration.md](008-icon-migration.md) | Emoji → Bootstrap Icons via central `Icon` wrapper | **Implemented** |
+| 9 | [009-marketing-site.md](009-marketing-site.md) | Public marketing site (landing/features/pricing/support) | **Implemented** (placeholder links) |
 
 ## Architecture invariants (all specs must respect)
 

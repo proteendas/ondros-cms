@@ -4,6 +4,7 @@
 #   editor  -> Next.js visual editor (spaces/environments, content model, entries,
 #              media library, settings, AI sidebar, live preview)
 #   preview -> Next.js preview/delivery site (draft mode + inline-editing bridge)
+#   marketing -> Next.js public marketing/brand site for Ondros CMS (:3002)
 #
 # Copy .env.example to .env (set an AI provider if you want AI features), then:
 #   docker compose up -d
@@ -94,8 +95,22 @@ services:
       - ./preview:/app
       - preview_node_modules:/app/node_modules
 
+  marketing:
+    build: ./marketing
+    environment:
+      # Where the marketing site's Login / Get Started CTAs send visitors
+      # (the authenticated editor app) — configurable per environment.
+      NEXT_PUBLIC_APP_LOGIN_URL: ${APP_LOGIN_URL:-http://localhost:3000/login}
+      NEXT_PUBLIC_APP_SIGNUP_URL: ${APP_SIGNUP_URL:-http://localhost:3000/signup}
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./marketing:/app
+      - marketing_node_modules:/app/node_modules
+
 volumes:
   pgdata:
   backend_media:
   editor_node_modules:
   preview_node_modules:
+  marketing_node_modules:

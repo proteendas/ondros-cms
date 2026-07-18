@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
+import Icon, { IconName } from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 import { ConfirmDialog, EmptyState, Modal, useToast } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
 import type { ContentType } from '@/lib/types';
 
-const TYPE_ICONS = ['🧩', '📄', '🧱', '🃏', '📰', '🎯', '🗂'];
+const TYPE_ICONS: IconName[] = ['type-0', 'type-1', 'type-2', 'type-3', 'type-4', 'type-5', 'type-6'];
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
@@ -56,7 +57,7 @@ export default function ContentTypesPage() {
         </div>
       ) : types.length === 0 ? (
         <EmptyState
-          icon="🧩"
+          icon={<Icon name="content-model" size={32} />}
           title="No content types yet"
           hint="Create your first type, or run the seed script for a sample model."
           action={
@@ -72,7 +73,9 @@ export default function ContentTypesPage() {
           {types.map((ct, i) => (
             <div key={ct.id} className="card type-card">
               <div className="row">
-                <div className="type-icon">{TYPE_ICONS[i % TYPE_ICONS.length]}</div>
+                <div className="type-icon">
+                  <Icon name={TYPE_ICONS[i % TYPE_ICONS.length]} size={17} />
+                </div>
                 <div style={{ minWidth: 0 }}>
                   <div className="type-title">{ct.name}</div>
                   <code style={{ fontSize: 11 }}>{ct.api_id}</code>

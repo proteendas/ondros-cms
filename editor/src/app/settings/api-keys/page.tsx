@@ -180,7 +180,7 @@ function UsageSnippets({ apiKey, spaceId, envKey }: { apiKey: ApiKey; spaceId: s
   const curl = `curl "${API_URL}/spaces/${spaceId}/environments/${envKey}/delivery/entries?content_type=article&include=2" \\
   -H "Authorization: Bearer ${token}"`;
 
-  const sdk = `import { createClient } from '@acme/cms-client'; // sdk/ in this repo
+  const sdk = `import { createClient } from '@ondros/sdk'; // sdk/ in this repo
 
 const client = createClient({
   baseUrl: '${API_URL}',

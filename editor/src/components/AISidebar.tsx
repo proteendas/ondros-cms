@@ -14,6 +14,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 import { localizedValue, withLocalizedValue } from '@/lib/types';
 import type { AiStatus, ComplianceResult, ContentType, FieldDef } from '@/lib/types';
@@ -284,7 +285,7 @@ export default function AISidebar({
       />
       <div style={{ marginTop: 8 }}>
         <button className="btn" onClick={generate} disabled={!!busy || !brief.trim() || aiOff}>
-          {busy === 'generate' ? 'Generating…' : `✨ Generate fields (${locale})`}
+          {busy === 'generate' ? 'Generating…' : <><Icon name="generate" size={13} /> Generate fields ({locale})</>}
         </button>
       </div>
 
@@ -310,20 +311,20 @@ export default function AISidebar({
 
       <div className="row wrap">
         <button className="btn secondary small" onClick={suggestTitles} disabled={!!busy || aiOff}>
-          {busy === 'titles' ? '…' : '💡 Suggest titles'}
+          {busy === 'titles' ? '…' : <><Icon name="suggest-titles" size={13} /> Suggest titles</>}
         </button>
         <button className="btn secondary small" onClick={seoMeta} disabled={!!busy || aiOff}>
-          {busy === 'seo-meta' ? '…' : '🔍 SEO meta'}
+          {busy === 'seo-meta' ? '…' : <><Icon name="seo" size={13} /> SEO meta</>}
         </button>
         <button className="btn secondary small" onClick={checkCompliance} disabled={!!busy || aiOff}>
-          {busy === 'compliance' ? '…' : '✓ Compliance'}
+          {busy === 'compliance' ? '…' : <><Icon name="compliance" size={13} /> Compliance</>}
         </button>
       </div>
 
       {locales.length > 1 && (
         <div className="row" style={{ marginTop: 10 }}>
           <span className="muted small" style={{ whiteSpace: 'nowrap' }}>
-            🌐 AI translate {locale} to
+            <Icon name="translate" size={13} /> AI translate {locale} to
           </span>
           <select
             className="input"

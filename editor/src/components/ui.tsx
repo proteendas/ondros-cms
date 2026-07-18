@@ -3,6 +3,8 @@
 /** Small shared UI primitives (modal, confirm, empty state, toasts). */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
+
 export function Modal({
   title,
   subtitle,
@@ -31,7 +33,7 @@ export function Modal({
           <h2>{title}</h2>
           <span className="spacer" />
           <button className="btn ghost small" onClick={onClose} aria-label="Close">
-            ✕
+            <Icon name="close" size={14} />
           </button>
         </div>
         {subtitle && <p className="modal-sub">{subtitle}</p>}
@@ -85,19 +87,22 @@ export function ConfirmDialog({
 }
 
 export function EmptyState({
-  icon = '📄',
+  icon,
   title,
   hint,
   action,
 }: {
-  icon?: string;
+  /** Any node — typically <Icon name="..." size={32} /> (spec 008). */
+  icon?: React.ReactNode;
   title: string;
   hint?: string;
   action?: React.ReactNode;
 }) {
   return (
     <div className="empty-state">
-      <div className="big">{icon}</div>
+      <div className="big" style={{ color: 'var(--text-3)' }}>
+        {icon ?? <Icon name="content" size={32} />}
+      </div>
       <h3 style={{ margin: '0 0 4px' }}>{title}</h3>
       {hint && <p className="muted" style={{ margin: 0 }}>{hint}</p>}
       {action && <div style={{ marginTop: 14 }}>{action}</div>}

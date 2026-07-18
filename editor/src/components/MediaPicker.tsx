@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import Icon from '@/components/ui/Icon';
 import { API_URL, api, getToken } from '@/lib/api';
 import { Modal, formatBytes } from '@/components/ui';
 import type { MediaAsset, MediaList } from '@/lib/types';
@@ -23,9 +24,9 @@ export function assetThumb(asset: MediaAsset): React.ReactNode {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={`${API_URL}${asset.url}`} alt={asset.alt_text || asset.filename} />;
   }
-  if (asset.mime_type.startsWith('video/')) return <span>🎬</span>;
-  if (asset.mime_type === 'application/pdf') return <span>📕</span>;
-  return <span>📎</span>;
+  if (asset.mime_type.startsWith('video/')) return <Icon name="media-video" size={26} />;
+  if (asset.mime_type === 'application/pdf') return <Icon name="media-pdf" size={26} />;
+  return <Icon name="media-file" size={26} />;
 }
 
 export default function MediaPicker({ spacePath, envPath, multiple, value, onChange }: Props) {
@@ -79,7 +80,7 @@ export default function MediaPicker({ spacePath, envPath, multiple, value, onCha
         </div>
       )}
       <button type="button" className="btn secondary small" style={{ marginTop: 8 }} onClick={() => setPicking(true)}>
-        🖼 {ids.length ? (multiple ? 'Add more media' : 'Replace media') : 'Choose media'}
+        <Icon name="media" size={13} /> {ids.length ? (multiple ? 'Add more media' : 'Replace media') : 'Choose media'}
       </button>
 
       {picking && (
@@ -162,7 +163,7 @@ export function MediaPickerModal({
         </select>
         <span className="spacer" />
         <label className="btn secondary small" style={{ cursor: 'pointer' }}>
-          {uploading ? 'Uploading…' : '⬆ Upload'}
+          {uploading ? 'Uploading…' : <><Icon name="upload" size={13} /> Upload</>}
           <input type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
         </label>
       </div>

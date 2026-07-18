@@ -4,7 +4,9 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import Icon, { IconName } from '@/components/ui/Icon';
 import { api } from '@/lib/api';
+import { BRAND } from '@/lib/brand';
 import { useWorkspace } from '@/lib/workspace';
 import type { ContentType, EntryList, MediaList } from '@/lib/types';
 
@@ -25,8 +27,8 @@ export default function HomePage() {
   if (!user)
     return (
       <div className="empty-state">
-        <div className="big">🔒</div>
-        <h3>Welcome to Compose CMS</h3>
+        <div className="big" style={{ color: 'var(--text-3)' }}><Icon name="lock" size={32} /></div>
+        <h3>Welcome to {BRAND.name}</h3>
         <p className="muted">
           <Link href="/login">Sign in</Link> to manage your spaces and content, or{' '}
           <Link href="/signup">create an account</Link>.
@@ -36,7 +38,7 @@ export default function HomePage() {
   if (spaces.length === 0)
     return (
       <div className="empty-state">
-        <div className="big">🚀</div>
+        <div className="big" style={{ color: 'var(--primary)' }}><Icon name="generate" size={32} /></div>
         <h3>Your account is ready</h3>
         <p className="muted">Create your first space to start modeling content.</p>
         {can('manage_spaces') && (
@@ -47,10 +49,10 @@ export default function HomePage() {
       </div>
     );
 
-  const cards = [
-    { href: '/content-types', icon: '🧩', label: 'Content types', value: types?.length ?? '…' },
-    { href: '/entries', icon: '📄', label: 'Entries', value: entries?.total ?? '…' },
-    { href: '/media', icon: '🖼', label: 'Media assets', value: media?.total ?? '…' },
+  const cards: { href: string; icon: IconName; label: string; value: number | string }[] = [
+    { href: '/content-types', icon: 'content-model', label: 'Content types', value: types?.length ?? '…' },
+    { href: '/entries', icon: 'content', label: 'Entries', value: entries?.total ?? '…' },
+    { href: '/media', icon: 'media', label: 'Media assets', value: media?.total ?? '…' },
   ];
 
   return (
@@ -69,7 +71,7 @@ export default function HomePage() {
         {cards.map((c) => (
           <Link key={c.href} href={c.href} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="card type-card">
-              <div className="type-icon">{c.icon}</div>
+              <div className="type-icon"><Icon name={c.icon} size={17} /></div>
               <div style={{ fontSize: 26, fontWeight: 700 }}>{c.value}</div>
               <div className="type-meta">{c.label}</div>
             </div>
