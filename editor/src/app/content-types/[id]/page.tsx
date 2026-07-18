@@ -14,7 +14,8 @@ import { api } from '@/lib/api';
 import { ConfirmDialog, Modal, useToast } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
 import { FIELD_TYPE_INFO } from '@/lib/types';
-import type { ContentType, FieldDef, FieldType } from '@/lib/types';
+import type { ContentType, FieldDef, FieldType, RichTextConfig } from '@/lib/types';
+import { CONFIGURABLE_MARKS, CONFIGURABLE_NODES } from '@/components/richtext/config';
 
 const PICKABLE_TYPES: FieldType[] = [
   'text', 'longtext', 'richtext', 'number', 'boolean', 'datetime',
@@ -294,6 +295,86 @@ function SampleWidget({ field }: { field: FieldDef }) {
   }
 }
 
+/** Rich text field restrictions (spec 015): toggle marks/nodes/embeds/color/
+ * highlight/tables/links. Unchecking a mark/node materializes an explicit
+ * allowed list; re-checking everything resets to null (= all allowed). */
+function RichTextRestrictions({
+  cfg,
+  patch,
+  siblingTypes,
+}: {
+  cfg: RichTextConfig;
+  patch: (p: Partial<RichTextConfig>) => void;
+  siblingTypes: string[];
+}) {
+  const toggleInList = (
+    key: 'allowed_marks' | 'allowed_nodes',
+    all: readonly string[],
+    name: string,
+    on: boolean,
+  ) => {
+    const current = cfg[key] == null ? new Set(all) : new Set(cfg[key] as string[]);
+    if (on) current.add(name);
+    else current.delete(name);
+    // All present -> null (no restriction); otherwise the explicit subset.
+    patch({ [key]: all.every((n) => current.has(n)) ? null : Array.from(current) } as Partial<RichTextConfig>);
+  };
+  const marksOn = (n: string) => (cfg.allowed_marks == null ? true : cfg.allowed_marks.includes(n));
+  const nodesOn = (n: string) => (cfg.allowed_nodes == null ? true : cfg.allowed_nodes.includes(n));
+  const flag = (k: keyof RichTextConfig) => (cfg[k] ?? true) as boolean;
+
+  return (
+    <div style={{ marginTop: 0 }}>
+      <label className="field-label" style={{ marginTop: 0 }}>Rich text — formatting</label>
+      <p className="help-text" style={{ marginBottom: 6 }}>
+        Disallowed controls are hidden in the editor and rejected on publish.
+      </p>
+      <div className="row wrap" style={{ gap: 10 }}>
+        {CONFIGURABLE_MARKS.map((m) => (
+          <label key={m} className="checkbox-row" style={{ margin: 0 }}>
+            <input type="checkbox" checked={marksOn(m)} onChange={(e) => toggleInList('allowed_marks', CONFIGURABLE_MARKS, m, e.target.checked)} />
+            {m}
+          </label>
+        ))}
+      </div>
+      <label className="field-label">Blocks</label>
+      <div className="row wrap" style={{ gap: 10 }}>
+        {CONFIGURABLE_NODES.map((n) => (
+          <label key={n} className="checkbox-row" style={{ margin: 0 }}>
+            <input type="checkbox" checked={nodesOn(n)} onChange={(e) => toggleInList('allowed_nodes', CONFIGURABLE_NODES, n, e.target.checked)} />
+            {n}
+          </label>
+        ))}
+      </div>
+      <label className="field-label">Features</label>
+      <div className="row wrap" style={{ gap: 10 }}>
+        {([['allow_color', 'Text color'], ['allow_highlight', 'Highlight'], ['allow_tables', 'Tables'], ['allow_links', 'Links']] as [keyof RichTextConfig, string][]).map(([k, label]) => (
+          <label key={k} className="checkbox-row" style={{ margin: 0 }}>
+            <input type="checkbox" checked={flag(k)} onChange={(e) => patch({ [k]: e.target.checked } as Partial<RichTextConfig>)} />
+            {label}
+          </label>
+        ))}
+      </div>
+      <label className="field-label">Embeddable content types</label>
+      <p className="help-text" style={{ marginBottom: 6 }}>Empty = any type may be embedded.</p>
+      {siblingTypes.length === 0 && <p className="muted small">No other content types yet.</p>}
+      {siblingTypes.map((apiId) => (
+        <label key={apiId} className="checkbox-row" style={{ margin: '4px 0' }}>
+          <input
+            type="checkbox"
+            checked={(cfg.allowed_embed_types ?? []).includes(apiId)}
+            onChange={(e) => {
+              const cur = cfg.allowed_embed_types ?? [];
+              patch({ allowed_embed_types: e.target.checked ? [...cur, apiId] : cur.filter((x) => x !== apiId) });
+            }}
+          />
+          <code>{apiId}</code>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function FieldDialog({
   field,
   existingIds,
@@ -323,6 +404,9 @@ function FieldDialog({
   }
   function patchV(p: Partial<FieldDef['validations']>) {
     setDraft((d) => ({ ...d, validations: { ...d.validations, ...p } }));
+  }
+  function patchRT(p: Partial<RichTextConfig>) {
+    setDraft((d) => ({ ...d, rich_text: { ...(d.rich_text ?? {}), ...p } }));
   }
 
   function submit() {
@@ -444,7 +528,15 @@ function FieldDialog({
             </>
           )}
 
-          {isTextual && (
+          {draft.type === 'richtext' && (
+            <RichTextRestrictions
+              cfg={draft.rich_text ?? {}}
+              patch={patchRT}
+              siblingTypes={siblingTypes}
+            />
+          )}
+
+          {isTextual && draft.type !== 'richtext' && (
             <div className="row" style={{ marginTop: isReference ? 12 : 0 }}>
               <div>
                 <label className="field-label" style={{ marginTop: 0 }}>Min length</label>
@@ -464,7 +556,7 @@ function FieldDialog({
               </div>
             </div>
           )}
-          {isTextual && (
+          {isTextual && draft.type !== 'richtext' && (
             <>
               <label className="field-label">Pattern (regex)</label>
               <input

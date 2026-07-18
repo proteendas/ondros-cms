@@ -12,10 +12,13 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from app.core import richtext
+
 REFERENCE_TYPES = {"reference", "reference_many"}
 MEDIA_TYPES = {"media", "media_many"}
 MANY_TYPES = {"reference_many", "media_many"}
-TEXT_TYPES = {"text", "longtext", "richtext", "slug", "select"}
+# richtext is handled separately (str legacy HTML OR ProseMirror JSON doc).
+TEXT_TYPES = {"text", "longtext", "slug", "select"}
 
 
 def _is_empty(value: Any) -> bool:
@@ -23,6 +26,10 @@ def _is_empty(value: Any) -> bool:
         return True
     if isinstance(value, str) and not value.strip():
         return True
+    # A rich text JSON doc with no text and no embeds counts as empty.
+    if richtext.is_json_doc(value):
+        entry_ids, asset_ids = richtext.collect_ids(value)
+        return not richtext.plain_text(value) and not entry_ids and not asset_ids
     if isinstance(value, (list, dict)) and len(value) == 0:
         return True
     return False
@@ -42,6 +49,13 @@ def _check_type(fd: dict, value: Any) -> str | None:
     fid = fd["id"]
     if ftype in TEXT_TYPES and not isinstance(value, str):
         return f"Field '{fid}' must be a string"
+    if ftype == "richtext":
+        # Legacy HTML string or a ProseMirror JSON doc; structure checked below.
+        if not isinstance(value, (str, dict)):
+            return f"Field '{fid}' must be rich text (a string or JSON document)"
+        doc_errors = richtext.validate_doc(value, fd.get("rich_text"))
+        if doc_errors:
+            return f"Field '{fid}': {doc_errors[0]}"
     if ftype == "number" and (isinstance(value, bool) or not isinstance(value, (int, float))):
         return f"Field '{fid}' must be a number"
     if ftype == "boolean" and not isinstance(value, bool):
@@ -159,12 +173,29 @@ def collect_linked_ids(field_defs: list[dict], values: dict[str, Any]) -> tuple[
             return [v for v in value if isinstance(v, str) and _is_uuid(v)]
         return []
 
+    def _richtext_docs(raw: Any) -> list[Any]:
+        # A richtext field is either one doc, or (localized) a {locale: doc} map.
+        if richtext.is_json_doc(raw):
+            return [raw]
+        if isinstance(raw, dict):
+            return [v for v in raw.values() if richtext.is_json_doc(v)]
+        return []
+
     for fd in field_defs:
         ftype = fd.get("type")
-        if ftype not in REFERENCE_TYPES | MEDIA_TYPES:
-            continue
         raw = values.get(fd["id"])
         if raw is None:
+            continue
+
+        if ftype == "richtext":
+            for doc in _richtext_docs(raw):
+                e_ids, a_ids = richtext.collect_ids(doc)
+                if e_ids:
+                    entry_ids.setdefault(fd["id"], set()).update(e_ids)
+                media_ids.update(a_ids)
+            continue
+
+        if ftype not in REFERENCE_TYPES | MEDIA_TYPES:
             continue
         candidates: list[str] = []
         if fd.get("localized") and isinstance(raw, dict):

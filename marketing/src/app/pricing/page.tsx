@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CheckLg } from 'react-bootstrap-icons';
 
+import Reveal from '@/components/Reveal';
 import { APP_SIGNUP_URL } from '@/lib/brand';
 
 export const metadata: Metadata = { title: 'Pricing' };
@@ -88,8 +89,8 @@ export default function PricingPage() {
         </div>
 
         <div className="plans">
-          {PLANS.map((plan) => (
-            <div key={plan.name} className={`plan${plan.featured ? ' featured' : ''}`}>
+          {PLANS.map((plan, i) => (
+            <Reveal key={plan.name} className={`plan${plan.featured ? ' featured' : ''}`} delay={i * 100}>
               {plan.featured && <div className="flag">Most popular</div>}
               <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
               <div className="price">
@@ -113,7 +114,7 @@ export default function PricingPage() {
                   {plan.cta.label}
                 </a>
               )}
-            </div>
+            </Reveal>
           ))}
         </div>
 

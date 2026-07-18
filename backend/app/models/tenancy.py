@@ -30,6 +30,9 @@ class Tenant(Base):
     id: Mapped[uuid.UUID] = uuid_pk()
     name: Mapped[str] = mapped_column(String(200))
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    # Platform-level lifecycle (spec 013): suspended accounts are blocked on
+    # every API plane (management, delivery, preview) with 403 account_suspended.
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active | suspended
     created_at: Mapped[datetime] = created_at_col()
 
 
@@ -62,6 +65,9 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(200), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Platform operators (spec 013): grants /platform/* access. Not tied to
+    # any Account — orthogonal to tenant roles.
+    is_platform_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = created_at_col()
 
     # All role assignments (org-level and space-level). Loaded eagerly because

@@ -1,0 +1,96 @@
+# API Reference
+
+Three planes, three credentials. Full OpenAPI is served at `/docs` on the API
+host (Swagger UI) and exported to `openapi.json` in the repo.
+
+| Plane | Auth header | Base |
+|---|---|---|
+| Delivery | `Authorization: Bearer cms_del_…` | `/spaces/{spaceId}/environments/{env}/delivery` |
+| Preview | `Authorization: Bearer cms_pre_…` | same paths as delivery (drafts visible) |
+| Management | `Authorization: Bearer <JWT or cms_mgm_…>` | resource-specific, below |
+
+## Delivery & preview
+
+### List entries
+
+```bash
+curl "http://localhost:8000/spaces/<spaceId>/environments/master/delivery/entries?content_type=article&locale=fr&include=2&order=-published_at&limit=10" \
+  -H "Authorization: Bearer cms_del_..."
+```
+
+Query params: `content_type`, `slug`, `q` (full-text), `locale` (`*` = raw
+maps), `include` (0–3), `order` (`field` or `-field`), `limit`, `skip`, and
+`fields.<id>=<value>` exact-match filters.
+
+```json
+{
+  "items": [
+    {
+      "id": "2b1e…",
+      "content_type": "article",
+      "slug": "hello-world",
+      "fields": { "title": "Hello world", "body": "<p>…</p>" },
+      "published_at": "2026-07-01T10:00:00Z"
+    }
+  ],
+  "total": 1,
+  "skip": 0,
+  "limit": 10,
+  "includes": { "entries": {}, "assets": {} }
+}
+```
+
+### Single entry / assets
+
+```
+GET  …/delivery/entries/{entryId}?include=2&locale=en-US
+GET  …/delivery/assets?q=logo&limit=20
+GET  …/delivery/assets/{assetId}
+GET  /delivery/token-info            # what space/environments this token can see
+```
+
+Preview tokens use the same paths and additionally return draft entries with a
+`status` field.
+
+## Management (JWT or `cms_mgm_…` key)
+
+| Area | Endpoints |
+|---|---|
+| Auth | `POST /auth/signup`, `/auth/login`, `/auth/refresh`, `/auth/switch-account`, `GET /auth/me` |
+| Accounts | `GET /accounts`, invitations CRUD, `GET/POST /accounts/{id}/sso` |
+| Spaces | `GET/POST /spaces`, `PATCH/DELETE /spaces/{id}` |
+| Environments | `GET/POST /spaces/{id}/environments`, `POST …/environments/{env}/clone` |
+| Locales | `GET/POST /spaces/{id}/locales`, `PATCH/DELETE …/locales/{localeId}` |
+| Content types | `GET/POST /spaces/{id}/environments/{env}/content-types`, `PATCH/DELETE /content-types/{id}` |
+| Entries | `GET/POST /spaces/{id}/environments/{env}/entries`, `PATCH /entries/{id}`, `POST /entries/{id}/publish|unpublish|archive`, versions under `/entries/{id}/versions` |
+| Media | `POST /spaces/{id}/environments/{env}/media` (multipart), `PATCH/DELETE /media/{id}` |
+| API keys | `GET/POST /spaces/{id}/api-keys` (token returned once) |
+| Webhooks | `GET/POST /spaces/{id}/webhooks`, delivery log per webhook |
+| AI | `POST /ai/generate`, `/ai/rewrite`, `/ai/translate-fields`, … (see [AI Features](/docs/ai-features)) |
+| Billing | `GET /billing/plans`, `GET /billing/subscription`, `POST /billing/checkout` |
+| Audit | `GET /accounts/{id}/audit` |
+
+Example — create an entry:
+
+```bash
+curl -X POST "http://localhost:8000/spaces/<spaceId>/environments/master/entries" \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content_type_id": "<ctId>",
+    "slug": "hello-world",
+    "fields": { "title": { "en-US": "Hello world" }, "body": "<p>Hi</p>" }
+  }'
+```
+
+## Error shape
+
+Errors return `{ "detail": … }` — either a string or a coded object:
+
+```json
+{ "detail": { "code": "plan_limit_reached", "metric": "entries", "limit": 500, "used": 500 } }
+```
+
+Common codes: `sso_required` (428), `email_unverified` (403),
+`account_suspended` (403), `plan_limit_reached` (402), `api_quota_exceeded`
+(429, includes `Retry-After`). See [FAQ](/docs/faq) for fixes.

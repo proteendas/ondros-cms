@@ -105,7 +105,17 @@ function FieldInput({
 }) {
   switch (field.type) {
     case 'richtext':
-      return <RichTextField value={(value as string) ?? ''} onChange={onChange} />;
+      return (
+        <RichTextField
+          value={value as never}
+          onChange={onChange}
+          config={field.rich_text}
+          envPath={envPath}
+          spacePath={spacePath}
+          allTypes={allTypes}
+          defaultLocale={defaultLocale}
+        />
+      );
     case 'longtext':
       return (
         <textarea

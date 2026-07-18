@@ -32,8 +32,13 @@ docker compose exec backend python -m app.seed
 |-----------|----------------------------|------------------------------------------------|
 | Editor    | http://localhost:3000      | `admin@example.com`/`admin123` (org admin), `editor@example.com`/`editor123` (space editor) |
 | Preview   | http://localhost:3001      | Site frontend; published content + draft mode  |
-| Marketing | http://localhost:3002      | Public Ondros CMS brand site (landing/features/pricing/support) |
+| Marketing | http://localhost:3002      | Public Ondros CMS brand site (landing/features/pricing/docs/support) |
+| Superadmin| http://localhost:3003      | Platform-operator dashboard — `superadmin@example.com`/`super123` |
 | API docs  | http://localhost:8000/docs | Swagger UI (use `/auth/token` to authorize)    |
+
+Deploying somewhere other than your laptop? [DEPLOYMENT.md](DEPLOYMENT.md)
+covers a full free-tier hosting path (Vercel + Render/Railway +
+Neon/Supabase) for educational use.
 
 The seed creates a **Marketing Site** space (locales `en-US` + `fr`) with a
 `master` environment, an assembly-style model (`landing_page` → `hero` +
@@ -120,10 +125,12 @@ docker compose up -d db
 docker compose run --rm --entrypoint sh backend -c "pip install -q -r requirements-dev.txt && pytest"
 ```
 
-21 tests cover role/capability enforcement, API-key scoping (space +
-environment, drafts vs published, query-param auth), schema validation
-(localized required fields, unknown locales), reference integrity (existence,
-allowed types, self-reference), and environment cloning with reference remapping.
+49 tests cover role/capability enforcement, API-key scoping, schema
+validation, reference integrity, environment cloning, accounts
+(signup/verify/refresh/reset/invitations/isolation), locales + fallback
+chains, billing limits (402/429), SSO + GitHub OAuth with JIT provisioning,
+versions/audit, and the platform-admin API (access control, suspension across
+planes, audited impersonation).
 
 ## Repository layout
 
@@ -155,7 +162,10 @@ editor/                      Next.js visual editor (app shell, model builder,
 preview/                     Next.js site (delivery/preview API, draft mode,
                              nested assembly rendering, inline-editing bridge)
 marketing/                   Next.js public marketing site (Ondros brand,
-                             pricing, support; CTAs -> app via env URLs)
+                             pricing, /docs MDX documentation, support;
+                             CTAs -> app via env URLs; R3F hero)
+superadmin/                  Next.js platform-operator dashboard (:3003 —
+                             accounts/users/revenue/usage/health, impersonation)
 sdk/                         @ondros/sdk TypeScript SDK
 cli/                         ondros-cli (login, types export/import, codegen)
 ```

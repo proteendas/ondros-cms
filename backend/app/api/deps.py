@@ -71,6 +71,21 @@ class Actor:
         return "*" in caps or capability in caps
 
 
+async def _ensure_account_active(db: AsyncSession, tenant_id: uuid.UUID) -> None:
+    """Platform-level suspension (spec 013) blocks every API plane."""
+    status_row = (
+        await db.execute(select(Tenant.status).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    if status_row == "suspended":
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "account_suspended",
+                "message": "This account has been suspended. Contact support.",
+            },
+        )
+
+
 async def _bind_account(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     """Row-Level-Security binding: expose the active account to Postgres for
     the duration of this transaction (policies check
@@ -138,6 +153,7 @@ async def get_actor(request: Request, db: AsyncSession = Depends(get_db)) -> Act
         key = await _load_api_key(db, token, {"management"})
         if key is None:
             raise HTTPException(status_code=401, detail="Invalid or disabled management token")
+        await _ensure_account_active(db, key.tenant_id)
         await _bind_account(db, key.tenant_id)
         usage.track_api_call(key.tenant_id)
         await usage.check_api_quota(db, key.tenant_id)
@@ -169,10 +185,22 @@ async def get_actor(request: Request, db: AsyncSession = Depends(get_db)) -> Act
         if member is None:
             raise HTTPException(status_code=403, detail="Not a member of this account")
 
+    await _ensure_account_active(db, account_id)
     await _bind_account(db, account_id)
     usage.track_api_call(account_id)
     await usage.check_api_quota(db, account_id)
     return Actor(tenant_id=account_id, user=user)
+
+
+async def require_platform_admin(
+    user: User = Depends(get_current_user),
+) -> User:
+    """Platform-operator gate (spec 013): a user JWT whose account row has
+    is_platform_admin=true. Deliberately separate from tenant capability
+    checks — API keys and ordinary org admins never qualify."""
+    if not user.is_platform_admin:
+        raise HTTPException(status_code=403, detail="Platform administrator access required")
+    return user
 
 
 async def get_current_account(
@@ -292,6 +320,7 @@ async def get_content_key(
         raise HTTPException(status_code=401, detail="Invalid or disabled access token")
     if key.space_id != space_id:
         raise HTTPException(status_code=403, detail="Token does not grant access to this space")
+    await _ensure_account_active(db, key.tenant_id)
     await _bind_account(db, key.tenant_id)
     usage.track_api_call(key.tenant_id)
     await usage.check_api_quota(db, key.tenant_id)

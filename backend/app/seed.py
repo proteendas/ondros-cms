@@ -244,13 +244,26 @@ async def seed() -> None:
             full_name="Evan Editor",
             email_verified=True,
         )
-        db.add_all([admin, editor])
+        # Platform operator (spec 013) — dev only; grants the superadmin app
+        # (:3003) and the /platform API. Not a member of any customer account
+        # beyond the seed tenant it technically belongs to.
+        superadmin = User(
+            tenant_id=tenant.id,
+            email="superadmin@example.com",
+            hashed_password=hash_password("super123"),
+            full_name="Selin Superadmin",
+            email_verified=True,
+            is_platform_admin=True,
+        )
+        db.add_all([admin, editor, superadmin])
         await db.flush()
         db.add_all([
             UserRoleAssignment(user_id=admin.id, role_id=roles["ORG_ADMIN"].id, space_id=None),
             UserRoleAssignment(user_id=editor.id, role_id=roles["EDITOR"].id, space_id=space.id),
+            UserRoleAssignment(user_id=superadmin.id, role_id=roles["VIEWER"].id, space_id=None),
             AccountMember(tenant_id=tenant.id, user_id=admin.id, is_owner=True),
             AccountMember(tenant_id=tenant.id, user_id=editor.id),
+            AccountMember(tenant_id=tenant.id, user_id=superadmin.id),
         ])
 
         # API keys with deterministic dev tokens (see module docstring)
@@ -385,6 +398,7 @@ async def seed() -> None:
         print("Seed complete.")
         print("  Logins:   admin@example.com / admin123   (org admin)")
         print("            editor@example.com / editor123 (space editor)")
+        print("            superadmin@example.com / super123 (platform admin, :3003)")
         print(f"  Space:    {space.id} (marketing), environment: master")
         print(f"  Delivery token: {DEV_DELIVERY_TOKEN}")
         print(f"  Preview token:  {DEV_PREVIEW_TOKEN}")

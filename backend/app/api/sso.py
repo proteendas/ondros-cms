@@ -12,6 +12,8 @@ domain lookup, and per-account SSO configuration.
 SAML: configs can be stored (provider_type="saml"); the runtime endpoint
 returns 501 until python3-saml (xmlsec native deps) is installed in the image.
 """
+import re
+import secrets
 import uuid
 from datetime import datetime
 
@@ -33,7 +35,8 @@ from app.core.oidc import (
     exchange_code,
     fetch_discovery,
 )
-from app.core.permissions import Capability
+from app.core import oauth_github
+from app.core.permissions import SYSTEM_ROLES, Capability
 from app.core.security import create_state_token, decode_state_token
 from app.database import get_db
 from app.models import AccountMember, Role, SSOConfig, Tenant, User, UserRoleAssignment
@@ -71,10 +74,8 @@ async def _account_config(db: AsyncSession, slug: str) -> tuple[Tenant, SSOConfi
 
 
 def _redirect_uri(slug: str) -> str:
-    # The backend origin; must be registered at the IdP.
-    base = settings.cors_origin_list[0].replace(":3000", ":8000") if settings.cors_origin_list else "http://localhost:8000"
-    # Prefer an explicit setting-free approach: derive from frontend_url host.
-    return f"{base}/sso/{slug}/callback"
+    # Registered at the IdP; BACKEND_URL is set per environment (spec 012).
+    return f"{settings.backend_url.rstrip('/')}/sso/{slug}/callback"
 
 
 @router.get("/sso/options")
@@ -83,6 +84,7 @@ async def sso_options():
     return {
         "google": bool(settings.google_client_id),
         "microsoft": bool(settings.microsoft_client_id),
+        "github": bool(settings.github_client_id),
     }
 
 
@@ -104,6 +106,119 @@ async def sso_lookup(email: EmailStr, db: AsyncSession = Depends(get_db)):
         "provider_name": config.name or config.provider_type,
         "login_url": f"/sso/{account.slug}/login",
     }
+
+
+# --- Social JIT provisioning (spec 012) -------------------------------------------
+#
+# Global social login (Google / Microsoft / GitHub) creates a personal Account
+# for unknown emails — the same bootstrap as /auth/signup: tenant + system
+# roles + ORG_ADMIN owner. The IdP asserts mailbox ownership, so the user is
+# born verified; the password sentinel never matches bcrypt verification.
+
+
+async def _unique_account_slug(db: AsyncSession, email: str) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", email.split("@", 1)[0].lower()).strip("-") or "workspace"
+    slug = base
+    while (await db.execute(select(Tenant).where(Tenant.slug == slug))).scalar_one_or_none():
+        slug = f"{base}-{secrets.token_hex(3)}"
+    return slug
+
+
+async def _jit_provision_personal_account(
+    db: AsyncSession, email: str, full_name: str, provider: str
+) -> User:
+    account = Tenant(
+        name=f"{full_name or email.split('@', 1)[0]}'s Workspace",
+        slug=await _unique_account_slug(db, email),
+    )
+    db.add(account)
+    await db.flush()
+
+    roles: dict[str, Role] = {}
+    for name, preset in SYSTEM_ROLES.items():
+        role = Role(
+            tenant_id=account.id, name=name, description=preset["description"],
+            permissions=preset["permissions"], is_system=True,
+        )
+        db.add(role)
+        roles[name] = role
+    await db.flush()
+
+    user = User(
+        tenant_id=account.id,
+        email=email,
+        hashed_password="!sso!",  # never matches bcrypt verification
+        full_name=full_name,
+        email_verified=True,
+    )
+    db.add(user)
+    await db.flush()
+    db.add(AccountMember(tenant_id=account.id, user_id=user.id, is_owner=True))
+    db.add(UserRoleAssignment(user_id=user.id, role_id=roles["ORG_ADMIN"].id, space_id=None))
+    record_audit(db, None, "account.signup_social", "account", account.id,
+                 diff={"email": email, "provider": provider}, tenant_id=account.id)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+# --- GitHub (plain OAuth2 — defined before the dynamic /sso/{slug} routes) --------
+
+
+@router.get("/sso/github/login")
+async def github_login():
+    if not settings.github_client_id:
+        raise HTTPException(status_code=404, detail="GitHub sign-in is not configured")
+    state = create_state_token({"slug": "github"})
+    url = oauth_github.build_authorize_url(
+        settings.github_client_id, _redirect_uri("github"), state
+    )
+    return RedirectResponse(url, status_code=302)
+
+
+@router.get("/sso/github/callback")
+async def github_callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.api.auth import _issue_pair
+
+    if not settings.github_client_id:
+        raise HTTPException(status_code=404, detail="GitHub sign-in is not configured")
+    if error:
+        raise HTTPException(status_code=401, detail=f"GitHub returned an error: {error}")
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="Missing code or state")
+    try:
+        state_claims = decode_state_token(state)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid state (retry the sign-in)")
+    if state_claims.get("slug") != "github":
+        raise HTTPException(status_code=400, detail="State/slug mismatch")
+
+    try:
+        identity = await oauth_github.exchange_code(
+            settings.github_client_id, settings.github_client_secret,
+            code, _redirect_uri("github"),
+        )
+    except oauth_github.GitHubOAuthError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    email = identity["email"]
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if user is None:
+        user = await _jit_provision_personal_account(db, email, identity["name"], "github")
+    elif not user.email_verified:
+        user.email_verified = True  # GitHub asserts mailbox ownership
+        await db.commit()
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="This user is suspended")
+
+    pair = await _issue_pair(db, user, user.tenant_id)
+    fragment = f"access={pair.access_token}&refresh={pair.refresh_token}&account={pair.account_id}"
+    return RedirectResponse(f"{settings.frontend_url}/login#{fragment}", status_code=302)
 
 
 @router.get("/sso/{slug}/login")
@@ -178,11 +293,13 @@ async def sso_callback(
 
     if user is None:
         if account is None or config is None:
-            # Global social login never creates users/accounts by itself.
-            raise HTTPException(
-                status_code=403,
-                detail="No user with this email. Sign up first or ask for an invitation.",
+            # Global social login: mint a personal account (spec 012).
+            user = await _jit_provision_personal_account(
+                db, email, claims.get("name", ""), slug
             )
+            pair = await _issue_pair(db, user, user.tenant_id)
+            fragment = f"access={pair.access_token}&refresh={pair.refresh_token}&account={pair.account_id}"
+            return RedirectResponse(f"{settings.frontend_url}/login#{fragment}", status_code=302)
         # JIT provisioning into the account that owns this SSO config.
         user = User(
             tenant_id=account.id,

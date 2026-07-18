@@ -50,6 +50,9 @@ DDL_STATEMENTS = [
     # DEFAULT TRUE grandfathers existing rows; new ORM inserts default to False.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT TRUE",
     "ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE",
+    # --- Platform admin (spec 013): operator flag + account suspension.
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN DEFAULT FALSE",
+    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'",
 ]
 
 # Tables carrying tenant_id get RLS policies (second line of defense — active

@@ -1,0 +1,65 @@
+# AI Features
+
+Ondros ships guideline-aware AI: every feature retrieves relevant passages
+from **your ingested brand guidelines** (vector search when embeddings are
+available, keyword retrieval otherwise) and grounds the model in them. Works
+with free providers — Groq, Gemini, Ollama (fully local), OpenRouter — as well
+as OpenAI/Azure. `GET /ai/status` reports the active provider and retrieval
+mode.
+
+All endpoints are management-plane (`Authorization: Bearer <JWT>`).
+
+## Generate an entry from a brief
+
+```
+POST /ai/generate
+{ "space_id": "…", "environment": "master", "content_type_id": "…",
+  "brief": "Landing page announcing our Q3 developer conference" }
+```
+
+Returns a complete `fields` draft matching the content-type schema — including
+nested assembly blocks — ready to review in the editor's AI sidebar.
+
+## Rewrite / shorten / expand / tone
+
+```
+POST /ai/rewrite
+{ "text": "…", "instruction": "shorten" }   // or "expand", "seo tone", free-form
+```
+
+The editor exposes these as one-click actions on any text field.
+
+## Title suggestions & SEO metadata
+
+- `POST /ai/suggest-titles` — headline options for the current draft.
+- `POST /ai/seo-meta` — meta title + description within length limits.
+
+## Compliance check
+
+```
+POST /ai/check-compliance
+{ "space_id": "…", "text": "…" }
+```
+
+Audits copy against your ingested guidelines and returns pass/fail findings
+with the guideline passages that triggered them.
+
+## Translate between locales
+
+```
+POST /ai/translate-fields
+{ "entry_id": "…", "source_locale": "en-US", "target_locale": "hi-IN" }
+```
+
+Translates every localized field of the entry between **any pair of active
+locales** — the editor's locale tabs surface this as "AI translate".
+
+## Guidelines (RAG corpus)
+
+Upload brand/style documents under **Guidelines** in the editor; they're
+chunked, embedded (pgvector), and retrieved per request. No guidelines
+ingested? Features still work — they just run without brand grounding.
+
+> AI endpoints return **503** when no provider is configured. Set
+> `AI_PROVIDER` (+ `AI_API_KEY`) in the backend environment — the free options
+> are listed in the repo's `.env.example`.

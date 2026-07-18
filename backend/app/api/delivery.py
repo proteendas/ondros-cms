@@ -31,6 +31,7 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import ContentKeyContext, _load_api_key, get_content_key
+from app.core import richtext
 from app.core.validation import MEDIA_TYPES, REFERENCE_TYPES
 from app.database import get_db
 from app.models import ContentType, Entry, EntryStatus, Environment, MediaAsset, Space
@@ -146,20 +147,38 @@ def _collect_links(field_defs: list[dict], fields: dict[str, Any]) -> tuple[set[
             return out
         return []
 
+    def _add(target: set[str], candidate: str) -> None:
+        try:
+            uuid.UUID(candidate)
+            target.add(candidate)
+        except ValueError:
+            pass
+
     for fd in field_defs:
         ftype = fd.get("type")
-        if ftype not in REFERENCE_TYPES | MEDIA_TYPES:
-            continue
         raw = fields.get(fd["id"])
         if raw is None:
             continue
+
+        if ftype == "richtext":
+            # Entries/assets embedded or linked inside the doc (spec 015).
+            # Value may be one doc, or a {locale: doc} map when locale="*".
+            docs = [raw] if richtext.is_json_doc(raw) else (
+                list(raw.values()) if isinstance(raw, dict) else []
+            )
+            for doc in docs:
+                e_ids, a_ids = richtext.collect_ids(doc)
+                for cid in e_ids:
+                    _add(entry_ids, cid)
+                for cid in a_ids:
+                    _add(asset_ids, cid)
+            continue
+
+        if ftype not in REFERENCE_TYPES | MEDIA_TYPES:
+            continue
         target = entry_ids if ftype in REFERENCE_TYPES else asset_ids
         for candidate in _ids(raw):
-            try:
-                uuid.UUID(candidate)
-                target.add(candidate)
-            except ValueError:
-                continue
+            _add(target, candidate)
     return entry_ids, asset_ids
 
 

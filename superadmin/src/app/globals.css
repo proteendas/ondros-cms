@@ -1,0 +1,176 @@
+/* ---------------------------------------------------------------------------
+   Ondros platform admin (spec 013). Dark operator chrome — deliberately
+   distinct from the tenant-facing editor so support staff always know which
+   surface they're on. Same token family as the product.
+--------------------------------------------------------------------------- */
+
+:root {
+  --bg: #0b1220;
+  --surface: #101a2e;
+  --surface-2: #16233c;
+  --border: #223252;
+  --text: #e2e8f0;
+  --text-2: #94a3b8;
+  --text-3: #64748b;
+  --primary: #6366f1;
+  --primary-soft: rgba(99, 102, 241, 0.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.12);
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.12);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.12);
+  --radius: 10px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: #a5b4fc; text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+code { font-family: var(--mono); font-size: 12.5px; }
+
+/* ---- Shell ------------------------------------------------------------- */
+
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: #0d1526;
+  border-right: 1px solid var(--border);
+  padding: 18px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+  position: sticky; top: 0; height: 100vh;
+}
+.sidebar .brand {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 700; font-size: 14.5px; color: #fff;
+  padding: 4px 10px 16px;
+}
+.sidebar .brand .sub { display: block; font-size: 11px; font-weight: 500; color: var(--text-3); }
+.sidebar a.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px;
+  color: var(--text-2); font-size: 13.5px; font-weight: 500;
+  text-decoration: none !important;
+}
+.sidebar a.nav-item:hover { background: var(--surface-2); color: var(--text); }
+.sidebar a.nav-item.active { background: var(--primary-soft); color: #c7d2fe; }
+.sidebar .foot { margin-top: auto; padding: 10px 12px; font-size: 12px; color: var(--text-3); }
+.main { flex: 1; padding: 26px 30px 60px; min-width: 0; }
+.page-head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.page-head p { margin: 0; color: var(--text-2); font-size: 13px; }
+.page-head .spacer { flex: 1; }
+
+@media (max-width: 800px) {
+  .shell { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .sidebar .brand { padding-bottom: 4px; }
+  .sidebar .foot { display: none; }
+  .main { padding: 18px 16px 50px; }
+}
+
+/* ---- Cards / stats -------------------------------------------------------- */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 18px;
+}
+.card .k { font-size: 12px; color: var(--text-2); margin-bottom: 6px; display: flex; gap: 7px; align-items: center; }
+.card .v { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+.card .hint { font-size: 11.5px; color: var(--text-3); margin-top: 4px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 20px; }
+
+/* ---- Tables ------------------------------------------------------------------ */
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 640px; }
+table.data th, table.data td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+table.data th { background: var(--surface-2); color: var(--text-2); font-weight: 600; font-size: 12px; white-space: nowrap; }
+table.data tr:last-child td { border-bottom: none; }
+table.data tr.clickable { cursor: pointer; }
+table.data tr.clickable:hover td { background: var(--surface-2); }
+
+/* ---- Bits -------------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+}
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.danger { background: var(--danger-soft); color: var(--danger); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.muted { background: var(--surface-2); color: var(--text-2); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--primary); color: #fff; border: none;
+  padding: 8px 14px; border-radius: 8px;
+  font-size: 13px; font-weight: 600; font-family: var(--font);
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text-2); }
+.btn.ghost:hover { color: var(--text); border-color: var(--text-3); }
+.btn.danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+.btn.small { padding: 5px 10px; font-size: 12px; }
+
+.input {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-family: var(--font); font-size: 13.5px;
+  padding: 9px 12px; width: 100%;
+}
+.input:focus { outline: none; border-color: var(--primary); }
+.search { max-width: 320px; }
+
+.field-label { display: block; font-size: 12px; color: var(--text-2); margin: 12px 0 5px; font-weight: 600; }
+.error-text { color: var(--danger); font-size: 13px; }
+.muted { color: var(--text-2); }
+.small { font-size: 12px; }
+.mono { font-family: var(--mono); }
+.row { display: flex; align-items: center; gap: 10px; }
+.row .spacer { flex: 1; }
+
+/* ---- Meter -------------------------------------------------------------------- */
+
+.meter { background: var(--surface-2); border-radius: 999px; height: 6px; overflow: hidden; min-width: 90px; }
+.meter > span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+.meter.warn > span { background: var(--warn); }
+.meter.danger > span { background: var(--danger); }
+
+/* ---- Login ---------------------------------------------------------------------- */
+
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-card {
+  width: 100%; max-width: 380px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 30px 28px;
+}
+
+/* ---- Chart ---------------------------------------------------------------------- */
+
+.chart-bars { display: flex; align-items: flex-end; gap: 3px; height: 120px; }
+.chart-bars .bar { flex: 1; background: var(--primary); border-radius: 3px 3px 0 0; min-height: 2px; opacity: 0.85; }
+.chart-bars .bar:hover { opacity: 1; }
+.chart-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-3); margin-top: 6px; }
+
+/* ---- Detail drawer --------------------------------------------------------------- */
+
+.drawer-row td { background: var(--surface-2); }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 8px 0; }
+.kv .item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.kv .item .k { font-size: 11px; color: var(--text-3); }

@@ -1,5 +1,6 @@
 /** Features page (spec 009): detailed capability breakdown. */
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   Boxes,
   Braces,
@@ -15,6 +16,7 @@ import {
   Stars,
 } from 'react-bootstrap-icons';
 
+import Reveal from '@/components/Reveal';
 import { APP_SIGNUP_URL } from '@/lib/brand';
 
 export const metadata: Metadata = { title: 'Features' };
@@ -23,61 +25,73 @@ const SECTIONS = [
   {
     icon: <Boxes size={20} />,
     title: 'Content modeling',
+    href: '/docs/core-concepts',
     text: 'Fourteen field types including rich text, media, JSON, and entry references. Build assemblies — pages composed of ordered, reusable blocks — with per-field validations, localization flags, and AI hints that steer generation.',
   },
   {
     icon: <Images size={20} />,
     title: 'Media library',
+    href: '/docs/getting-started',
     text: 'Drag-and-drop uploads with automatic dimensions, alt text and tags, searchable grid, and on-the-fly image variants (resize + format) served from a cache-friendly URL.',
   },
   {
     icon: <Stars size={20} />,
     title: 'AI tools',
+    href: '/docs/ai-features',
     text: 'Generate whole entries from a brief, rewrite or expand a field, suggest titles, produce SEO metadata, translate between any active locales, and audit drafts against your own ingested brand guidelines (RAG). Works with free providers — Groq, Gemini, Ollama — or OpenAI/Azure.',
   },
   {
     icon: <Diagram3 size={20} />,
     title: 'Spaces & environments',
+    href: '/docs/core-concepts',
     text: 'Each space carries its own content model, locales, keys, and webhooks. Branch content into environments (master/staging/dev), clone with reference remapping, and promote changes safely.',
   },
   {
     icon: <Globe2 size={20} />,
     title: 'Localization',
+    href: '/docs/core-concepts',
     text: 'Pick any ISO locale per space, localize individual fields, configure fallback chains (hi-IN → en-GB → default), and let the delivery API resolve the right value per request.',
   },
   {
     icon: <People size={20} />,
     title: 'Roles & permissions',
+    href: '/docs/core-concepts',
     text: 'Capability-based system roles (admin, editor, author, viewer) plus custom roles, assignable org-wide or per space. Publishing rights are separate from editing rights.',
   },
   {
     icon: <ShieldLock size={20} />,
     title: 'Enterprise SSO',
+    href: '/docs/faq',
     text: 'OIDC single sign-on (Google, Microsoft Entra ID, Okta) with just-in-time provisioning, domain restrictions, and optional enforcement that disables password login for your domain.',
   },
   {
     icon: <Broadcast size={20} />,
     title: 'Webhooks',
+    href: '/docs/webhooks',
     text: 'HMAC-signed webhooks on entry, model, and asset events with content-type and environment filters — plus a delivery log with status codes and latency for debugging.',
   },
   {
     icon: <Braces size={20} />,
     title: 'SDK & API',
+    href: '/docs/sdk',
     text: 'Typed TypeScript SDK with automatic retries, stale-while-revalidate caching, field filters, and Contentful-style link resolution. A CLI generates TypeScript types from your content model; the whole API ships as OpenAPI 3.',
   },
   {
     icon: <ClockHistory size={20} />,
     title: 'Version history & audit',
+    href: '/docs/core-concepts',
     text: 'Every save snapshots the entry — diff any version against the current draft and restore in one click. A full audit log records who changed what, when, with field-level diffs.',
   },
   {
     icon: <Key size={20} />,
     title: 'Scoped API keys',
+    href: '/docs/core-concepts',
     text: 'Separate delivery, preview, and management tokens, hashed at rest and scopable to specific environments. Rotate or disable instantly.',
   },
   {
     icon: <CreditCard size={20} />,
     title: 'Usage & billing',
+    href: '/docs/faq',
     text: 'Transparent per-account usage meters (entries, storage, seats, API calls) with plan limits enforced by clear API responses — never silent failures.',
   },
 ];
@@ -91,12 +105,15 @@ export default function FeaturesPage() {
           <p>Everything in the Ondros workspace, in detail.</p>
         </div>
         <div className="feature-grid">
-          {SECTIONS.map((s) => (
-            <div key={s.title} className="feature-card">
+          {SECTIONS.map((s, i) => (
+            <Reveal key={s.title} className="feature-card" delay={(i % 3) * 90}>
               <div className="f-icon">{s.icon}</div>
               <h3>{s.title}</h3>
               <p>{s.text}</p>
-            </div>
+              <p style={{ marginTop: 10 }}>
+                <Link href={s.href}>Learn more →</Link>
+              </p>
+            </Reveal>
           ))}
         </div>
         <div className="cta-band" style={{ marginTop: 60 }}>

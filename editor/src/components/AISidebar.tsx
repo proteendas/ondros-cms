@@ -19,6 +19,8 @@ import { api } from '@/lib/api';
 import { localizedValue, withLocalizedValue } from '@/lib/types';
 import type { AiStatus, ComplianceResult, ContentType, FieldDef } from '@/lib/types';
 
+import { aiOutputToRichText, richTextToText } from './richtext/convert';
+
 interface Props {
   contentType: ContentType;
   entryId: string;
@@ -37,11 +39,20 @@ interface Props {
 
 type TransformMode = 'rewrite' | 'shorten' | 'expand' | 'seo';
 
-/** Current display value of a field in the active locale. */
+/** Current display value of a field in the active locale, as plain text.
+ * Richtext fields store JSON docs (or legacy HTML) — extract their text. */
 function fieldText(fd: FieldDef | undefined, values: Record<string, unknown>, locale: string): string {
   if (!fd) return '';
   const v = fd.localized ? localizedValue(fd, values[fd.id], locale) : values[fd.id];
+  if (fd.type === 'richtext') return richTextToText(v as never);
   return typeof v === 'string' ? v : '';
+}
+
+/** Coerce an AI string result into the right shape for the target field:
+ * richtext fields become a TipTap JSON doc; everything else stays a string. */
+function shapeForField(fd: FieldDef, value: unknown): unknown {
+  if (fd.type === 'richtext' && typeof value === 'string') return aiOutputToRichText(value);
+  return value;
 }
 
 export default function AISidebar({
@@ -102,9 +113,11 @@ export default function AISidebar({
     }
   }
 
-  /** Write a plain value into a (possibly localized) field at the active locale. */
+  /** Write a value into a (possibly localized) field at the active locale,
+   * shaping AI text into a JSON doc for richtext fields. */
   function applyLocalized(fd: FieldDef, value: unknown) {
-    onApplyField(fd.id, fd.localized ? withLocalizedValue(fd, values[fd.id], locale, value) : value);
+    const shaped = shapeForField(fd, value);
+    onApplyField(fd.id, fd.localized ? withLocalizedValue(fd, values[fd.id], locale, shaped) : shaped);
   }
 
   async function generate() {
@@ -126,7 +139,8 @@ export default function AISidebar({
       for (const [fid, v] of Object.entries(result.fields)) {
         const fd = fields.find((f) => f.id === fid);
         if (!fd) continue;
-        wrapped[fid] = fd.localized ? withLocalizedValue(fd, values[fid], locale, v) : v;
+        const shaped = shapeForField(fd, v);
+        wrapped[fid] = fd.localized ? withLocalizedValue(fd, values[fid], locale, shaped) : shaped;
       }
       onApplyFields(wrapped);
       setGuidelinesUsed(result.guidelines_used);
@@ -205,7 +219,12 @@ export default function AISidebar({
     for (const fd of fields) {
       if (!fd.localized) continue;
       const v = localizedValue(fd, values[fd.id], sourceLocale);
-      if (typeof v === 'string' && v.trim()) source[fd.id] = v;
+      if (fd.type === 'richtext') {
+        const text = richTextToText(v as never);
+        if (text.trim()) source[fd.id] = text;
+      } else if (typeof v === 'string' && v.trim()) {
+        source[fd.id] = v;
+      }
     }
     if (!Object.keys(source).length) {
       setError(`Nothing to translate from ${sourceLocale}.`);
@@ -227,7 +246,7 @@ export default function AISidebar({
       for (const [fid, v] of Object.entries(result.fields)) {
         const fd = fields.find((f) => f.id === fid);
         if (!fd) continue;
-        wrapped[fid] = withLocalizedValue(fd, values[fid], targetLocale, v);
+        wrapped[fid] = withLocalizedValue(fd, values[fid], targetLocale, shapeForField(fd, v));
       }
       onApplyFields(wrapped);
       setGuidelinesUsed(result.guidelines_used);
@@ -238,7 +257,8 @@ export default function AISidebar({
     // Audit the active locale's resolved values.
     const resolved: Record<string, unknown> = {};
     for (const fd of fields) {
-      resolved[fd.id] = fd.localized ? localizedValue(fd, values[fd.id], locale) : values[fd.id];
+      const v = fd.localized ? localizedValue(fd, values[fd.id], locale) : values[fd.id];
+      resolved[fd.id] = fd.type === 'richtext' ? richTextToText(v as never) : v;
     }
     const result = await run('compliance', () =>
       api<ComplianceResult>('/ai/check-compliance', {

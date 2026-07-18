@@ -85,8 +85,16 @@ function Field({
 
   switch (field.type) {
     case 'richtext':
-      // Draft HTML comes from TipTap / the AI prompt contract (sanitized tag set).
-      // If untrusted authors can write content, sanitize server-side (e.g. bleach/DOMPurify).
+      // Spec 015: value is a ProseMirror JSON doc (new) or a legacy HTML string.
+      if (value && typeof value === 'object' && (value as RichTextNode).type === 'doc') {
+        return (
+          <div {...attrs} className="richtext">
+            <RichTextNodes nodes={(value as RichTextNode).content ?? []} maps={maps} keyPrefix="rt" />
+          </div>
+        );
+      }
+      // Legacy HTML string. If untrusted authors can write content, sanitize
+      // server-side (e.g. bleach/DOMPurify).
       return <div {...attrs} className="richtext" dangerouslySetInnerHTML={{ __html: String(value) }} />;
 
     case 'media':
@@ -195,6 +203,96 @@ function Field({
       }
       return <p {...attrs}>{String(value)}</p>;
     }
+  }
+}
+
+/* ---- Rich text (ProseMirror JSON) rendering (spec 015) --------------------- */
+
+interface RichTextMark {
+  type: string;
+  attrs?: Record<string, unknown>;
+}
+interface RichTextNode {
+  type?: string;
+  content?: RichTextNode[];
+  text?: string;
+  marks?: RichTextMark[];
+  attrs?: Record<string, unknown>;
+}
+
+/** Wrap a text run in its marks (bold/italic/color/highlight/links…). */
+function applyMarks(text: React.ReactNode, marks: RichTextMark[] | undefined, maps: Maps, key: string): React.ReactNode {
+  if (!marks?.length) return text;
+  return marks.reduce<React.ReactNode>((acc, mark, i) => {
+    const k = `${key}-m${i}`;
+    switch (mark.type) {
+      case 'bold': return <strong key={k}>{acc}</strong>;
+      case 'italic': return <em key={k}>{acc}</em>;
+      case 'underline': return <u key={k}>{acc}</u>;
+      case 'strike': return <s key={k}>{acc}</s>;
+      case 'code': return <code key={k}>{acc}</code>;
+      case 'textStyle': return <span key={k} style={{ color: mark.attrs?.color as string | undefined }}>{acc}</span>;
+      case 'highlight': return <mark key={k} style={{ background: (mark.attrs?.color as string) || undefined }}>{acc}</mark>;
+      case 'link': return <a key={k} href={String(mark.attrs?.href ?? '#')}>{acc}</a>;
+      case 'linkedEntry': {
+        const e = maps.entries.get(String(mark.attrs?.id));
+        return <a key={k} href={e ? `/${e.contentType.apiId}/${e.slug}` : '#'}>{acc}</a>;
+      }
+      case 'linkedAsset': {
+        const a = maps.assets.get(String(mark.attrs?.id));
+        return <a key={k} href={a ? `${MEDIA_URL}${a.url}` : '#'}>{acc}</a>;
+      }
+      default: return acc;
+    }
+  }, text);
+}
+
+function RichTextNodes({ nodes, maps, keyPrefix }: { nodes: RichTextNode[]; maps: Maps; keyPrefix: string }) {
+  return <>{nodes.map((n, i) => <RichTextNodeEl key={`${keyPrefix}-${i}`} node={n} maps={maps} nodeKey={`${keyPrefix}-${i}`} />)}</>;
+}
+
+function RichTextNodeEl({ node, maps, nodeKey }: { node: RichTextNode; maps: Maps; nodeKey: string }) {
+  const kids = <RichTextNodes nodes={node.content ?? []} maps={maps} keyPrefix={nodeKey} />;
+  switch (node.type) {
+    case 'text':
+      return <>{applyMarks(node.text ?? '', node.marks, maps, nodeKey)}</>;
+    case 'hardBreak':
+      return <br />;
+    case 'paragraph':
+      return <p>{kids}</p>;
+    case 'heading': {
+      const level = Math.min(Math.max(Number(node.attrs?.level ?? 2), 1), 6);
+      const Tag = (`h${level}`) as keyof JSX.IntrinsicElements;
+      return <Tag>{kids}</Tag>;
+    }
+    case 'blockquote': return <blockquote>{kids}</blockquote>;
+    case 'bulletList': return <ul>{kids}</ul>;
+    case 'orderedList': return <ol>{kids}</ol>;
+    case 'listItem': return <li>{kids}</li>;
+    case 'codeBlock': return <pre><code>{kids}</code></pre>;
+    case 'horizontalRule': return <hr />;
+    case 'table': return <table><tbody>{kids}</tbody></table>;
+    case 'tableRow': return <tr>{kids}</tr>;
+    case 'tableCell': return <td>{kids}</td>;
+    case 'tableHeader': return <th>{kids}</th>;
+    case 'embeddedEntryBlock': {
+      const e = maps.entries.get(String(node.attrs?.id));
+      if (!e) return null;
+      return (
+        <section className={`block block-${e.contentType.apiId}`} data-cms-entry-id={e.id}>
+          <EntryBody entry={e} maps={maps} depth={1} />
+        </section>
+      );
+    }
+    case 'embeddedEntryInline': {
+      const e = maps.entries.get(String(node.attrs?.id));
+      if (!e) return null;
+      return <a className="embed-inline" href={`/${e.contentType.apiId}/${e.slug}`}>{e.contentType.name}: {e.slug}</a>;
+    }
+    case 'embeddedAssetBlock':
+      return <Media attrs={{}} id={String(node.attrs?.id ?? '')} maps={maps} name="asset" />;
+    default:
+      return node.content ? <div>{kids}</div> : null;
   }
 }
 

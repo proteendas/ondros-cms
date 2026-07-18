@@ -27,6 +27,7 @@ from app.core import usage
 from app.core.audit import field_diff, record_audit, snapshot_entry
 from app.core.events import emit
 from app.core.permissions import Capability
+from app.core import richtext
 from app.core.validation import collect_linked_ids, validate_entry_fields
 from app.core.ws_manager import manager
 from app.database import get_db
@@ -77,13 +78,22 @@ async def validate_references(db: AsyncSession, entry: Entry, field_defs: list[d
         found = {str(rid): api_id for rid, api_id in rows}
         defs_by_id = {fd["id"]: fd for fd in field_defs}
         for fid, ids in entry_ids_by_field.items():
-            allowed = defs_by_id[fid].get("allowed_content_types") or []
+            fd = defs_by_id.get(fid, {})
+            is_richtext = fd.get("type") == "richtext"
+            if is_richtext:
+                # Embed-type restriction applies to entries embedded as nodes,
+                # not to reference-only link marks (spec 015).
+                allowed = (fd.get("rich_text") or {}).get("allowed_embed_types") or []
+                embedded = richtext.collect_embedded_entry_ids(entry.fields.get(fid))
+            else:
+                allowed = fd.get("allowed_content_types") or []
+                embedded = set()
             for ref_id in ids:
-                if ref_id == str(entry.id):
+                if ref_id == str(entry.id) and not is_richtext:
                     errors.append(f"Field '{fid}': an entry cannot reference itself")
                 elif ref_id not in found:
                     errors.append(f"Field '{fid}': referenced entry {ref_id} not found in this environment")
-                elif allowed and found[ref_id] not in allowed:
+                elif allowed and (not is_richtext or ref_id in embedded) and found[ref_id] not in allowed:
                     errors.append(
                         f"Field '{fid}': entry {ref_id} has type '{found[ref_id]}', "
                         f"allowed: {allowed}"

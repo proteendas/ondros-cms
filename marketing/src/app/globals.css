@@ -2,6 +2,15 @@
    Ondros CMS marketing site.
    Shares the product's design tokens (editor/src/app/globals.css) so the
    brand feels unified: indigo primary, slate chrome, same font stack.
+
+   Design token reference (spec 010) — keep in sync with the editor app:
+     Spacing scale   4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 84 px
+     Type scale      13 (fine) · 14.5 (body-s) · 16 (body) · 19 (lede)
+                     · 24–32 (h2, fluid) · 34–56 (h1, fluid)
+     Palette         derived from the logo gradient #6366f1 -> #a855f7:
+                     primary #4f46e5 (indigo-600 family), chrome slate
+                     #0f172a/#1e293b, text greys #101828/#475467/#98a2b3
+     Tap targets     interactive elements >= 44px tall on touch layouts
 --------------------------------------------------------------------------- */
 
 :root {
@@ -42,7 +51,7 @@ body {
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.12; letter-spacing: -0.02em; margin: 0; }
+h1 { font-size: clamp(34px, 5.6vw, 56px); line-height: 1.08; letter-spacing: -0.02em; margin: 0; }
 h2 { font-size: clamp(24px, 3.4vw, 32px); letter-spacing: -0.01em; margin: 0 0 8px; }
 h3 { font-size: 18px; margin: 0 0 6px; }
 
@@ -84,6 +93,7 @@ code {
 .site-nav {
   position: sticky; top: 0; z-index: 50;
   background: rgba(15, 23, 42, 0.92);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   color: #fff;
 }
@@ -102,9 +112,37 @@ code {
 }
 .site-nav a.nav-link:hover { color: #fff; }
 .site-nav .spacer { flex: 1; }
-@media (max-width: 640px) {
-  .site-nav .inner { gap: 14px; height: 58px; }
-  .site-nav a.nav-link { font-size: 13px; }
+.site-nav .nav-links { display: flex; align-items: center; gap: 26px; }
+.site-nav a.nav-link { padding: 10px 0; }  /* comfortable hit area on desktop too */
+
+/* Hamburger (spec 010): shown <=768px, 44px tap target. */
+.nav-burger {
+  display: none;
+  background: none; border: none; color: #fff; cursor: pointer;
+  width: 44px; height: 44px;
+  align-items: center; justify-content: center;
+  border-radius: 8px;
+}
+.nav-burger:hover { background: var(--chrome-2); }
+.nav-sheet {
+  display: flex; flex-direction: column;
+  padding: 8px 24px 22px;
+  background: rgba(15, 23, 42, 0.98);
+  border-top: 1px solid #1e293b;
+}
+.nav-sheet .sheet-link {
+  color: var(--chrome-text); font-size: 16px; font-weight: 500;
+  padding: 12px 4px; min-height: 44px; display: flex; align-items: center;
+  border-bottom: 1px solid #1e293b;
+  text-decoration: none !important;
+}
+.nav-sheet .sheet-link:hover { color: #fff; }
+
+@media (max-width: 768px) {
+  .site-nav .inner { gap: 12px; height: 60px; }
+  .site-nav .nav-links { display: none; }
+  .site-nav .nav-login { display: none; }
+  .nav-burger { display: inline-flex; }
 }
 
 /* ---- Hero -------------------------------------------------------------- */
@@ -133,6 +171,43 @@ code {
 }
 .hero .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .hero-logo { display: flex; justify-content: center; margin-bottom: 26px; }
+
+/* 3D hero slot (spec 010): fixed height so mounting/unmounting the WebGL
+   canvas never shifts layout; the static logo sits behind as the fallback. */
+.hero-visual {
+  position: relative;
+  height: 240px;
+  margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.hero-visual .hero-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.hero-visual .hero-canvas-wrap { position: absolute; inset: 0; }
+.hero-visual .hero-canvas-wrap canvas { touch-action: pan-y; }
+@media (max-width: 640px) { .hero-visual { height: 190px; } }
+
+/* Scroll reveals (spec 010) — driven by components/Reveal.tsx. */
+.reveal-hidden { opacity: 0; transform: translateY(18px); }
+.reveal-shown {
+  opacity: 1; transform: none;
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-hidden { opacity: 1; transform: none; }
+  .reveal-shown { transition: none; }
+}
+
+/* Tap targets (spec 010): buttons are comfortably >=44px on touch layouts. */
+@media (max-width: 768px) {
+  .btn { min-height: 44px; }
+  .btn.small { min-height: 44px; padding: 9px 18px; }
+  .hero { padding: 64px 0 76px; }
+  .section { padding: 60px 0; }
+}
+@media (max-width: 480px) {
+  .container { padding: 0 18px; }
+  .hero .cta-row .btn { flex: 1 1 100%; justify-content: center; }
+  .cta-band { padding: 38px 22px; border-radius: 14px; }
+}
 
 /* ---- Sections ----------------------------------------------------------- */
 
@@ -246,3 +321,60 @@ table.compare tr:last-child td { border-bottom: none; }
 .site-footer .socials a { color: #64748b; margin: 0; }
 .site-footer .socials a:hover { color: #fff; }
 @media (max-width: 760px) { .site-footer .cols { grid-template-columns: 1fr 1fr; } }
+
+/* ---- Docs (spec 011) ---------------------------------------------------- */
+
+.docs-wrap {
+  display: grid; grid-template-columns: 230px minmax(0, 1fr);
+  gap: 44px; padding: 40px 0 80px;
+}
+.docs-sidebar { position: sticky; top: 84px; align-self: start; }
+.docs-sidebar h5 {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-3); margin: 18px 0 6px;
+}
+.docs-sidebar a {
+  display: flex; align-items: center;
+  color: var(--text-2); font-size: 14px; padding: 7px 10px;
+  border-radius: 7px; min-height: 34px;
+  text-decoration: none !important;
+}
+.docs-sidebar a:hover { background: var(--surface-2); color: var(--text); }
+.docs-sidebar a.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.docs-toggle { display: none; }
+
+.docs-content { max-width: 780px; min-width: 0; }
+.docs-content h1 { font-size: 32px; margin-bottom: 8px; }
+.docs-content h2 { margin-top: 40px; padding-top: 8px; border-top: 1px solid var(--border); }
+.docs-content h3 { margin-top: 26px; }
+.docs-content p, .docs-content li { color: var(--text-2); font-size: 15px; }
+.docs-content pre {
+  background: var(--chrome); color: #e2e8f0;
+  border-radius: 10px; padding: 16px 18px;
+  overflow-x: auto; font-size: 13px; line-height: 1.6;
+}
+.docs-content pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+.docs-content table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 14px 0; display: block; overflow-x: auto; }
+.docs-content th, .docs-content td { border: 1px solid var(--border); padding: 9px 13px; text-align: left; }
+.docs-content th { background: var(--surface-2); }
+.docs-content blockquote {
+  margin: 14px 0; padding: 10px 16px;
+  border-left: 3px solid var(--primary);
+  background: var(--primary-soft); border-radius: 0 8px 8px 0;
+}
+.docs-content blockquote p { margin: 0; color: var(--text); font-size: 14px; }
+.docs-footer-nav { display: flex; justify-content: space-between; margin-top: 48px; gap: 12px; flex-wrap: wrap; }
+
+@media (max-width: 900px) {
+  .docs-wrap { grid-template-columns: 1fr; gap: 12px; padding-top: 20px; }
+  .docs-sidebar { position: static; display: none; }
+  .docs-sidebar.open { display: block; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .docs-sidebar a { min-height: 44px; }
+  .docs-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px; min-height: 44px;
+    font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--text);
+    cursor: pointer; margin-bottom: 6px;
+  }
+}

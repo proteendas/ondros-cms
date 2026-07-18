@@ -25,8 +25,9 @@ export default function SiteFooter() {
           </div>
           <div>
             <h4>Resources</h4>
-            {/* TODO: real docs/status destinations (spec 009) */}
-            <a href="#docs">Documentation</a>
+            <Link href="/docs">Documentation</Link>
+            <Link href="/docs/api">API Reference</Link>
+            {/* TODO: real status destination (spec 009) */}
             <a href="#status">Status</a>
             <Link href="/support">Support</Link>
           </div>

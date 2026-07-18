@@ -1,0 +1,46 @@
+# Ondros CMS Documentation
+
+Ondros is an AI-native headless CMS: model structured content visually, edit
+against a live preview, and deliver it to any frontend over a fast REST API or
+the typed TypeScript SDK.
+
+> New here? Start with [Getting Started](/docs/getting-started) — it takes you
+> from signup to your first SDK fetch in about ten minutes.
+
+## What's in these docs
+
+| Guide | What it covers |
+|---|---|
+| [Getting Started](/docs/getting-started) | Signup → space → content type → entry → fetch via SDK |
+| [Core Concepts](/docs/core-concepts) | Accounts, spaces, environments, content types, entries, locales, API keys |
+| [SDK Reference](/docs/sdk) | `createClient`, queries, filters, link resolution, TypeScript codegen |
+| [API Reference](/docs/api) | REST endpoints for the delivery, preview, and management planes |
+| [Webhooks](/docs/webhooks) | Event types, payload shape, signature verification |
+| [AI Features](/docs/ai-features) | Generate, rewrite, SEO, compliance checks, translation |
+| [FAQ & Troubleshooting](/docs/faq) | Common errors (401/402/403/429) and how to fix them |
+
+## The 30-second overview
+
+1. **Model** — define content types (fields, references, validations,
+   localization) in the visual builder. Assemblies compose pages from nested
+   blocks via `reference` / `reference_many` fields.
+2. **Edit** — authors work in a split view with live preview and inline
+   editing, assisted by guideline-aware AI.
+3. **Deliver** — published content is served by the delivery API with
+   locale fallbacks and link resolution; drafts flow through preview tokens.
+
+```ts
+import { createClient } from '@ondros/sdk';
+
+const client = createClient({
+  host: 'http://localhost:8000',
+  spaceId: '<space-id>',
+  accessToken: 'cms_del_…',
+});
+
+const { items } = await client.getEntries({ contentType: 'article', limit: 10 });
+```
+
+Self-hosting for a class project or demo? See the
+[free-tier deployment guide](https://github.com/your-org/ondros-cms/blob/main/DEPLOYMENT.md)
+in the repository. {/* TODO: replace with the real repo URL */}

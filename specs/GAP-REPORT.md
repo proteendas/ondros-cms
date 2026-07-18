@@ -1,4 +1,4 @@
-# Gap Report — SaaS Upgrade (Accounts, SSO, Locales, SDK, Billing, Audit, Brand)
+# Gap Report — SaaS Upgrade (Accounts, SSO, Locales, SDK, Billing, Audit, Brand, Platform)
 
 Status roll-up for the spec-driven upgrade. Per-workstream detail lives in the
 numbered specs. Legend: ✅ implemented & tested · 🟡 implemented, needs
@@ -118,6 +118,84 @@ external credentials/deps to fully activate · ⬜ next.
   Icons, responsive grids.
 - ⬜ Real docs/community/status destinations.
 
+### WS10 — Marketing polish (spec 010) ✅
+- Hamburger nav (≤768px, 44px tap targets, scroll-locked sheet), stacked
+  grids, fluid type, documented spacing/type/palette token block.
+- **3D hero**: React Three Fiber + drei orbital brand mark, `next/dynamic`
+  `ssr:false`, gated behind WebGL detection + `prefers-reduced-motion`
+  (static logo fallback in a fixed-height slot — zero layout shift).
+- Scroll reveals via IntersectionObserver `<Reveal>` (landing/features/
+  pricing) — GSAP deliberately not shipped (spec 010 decision).
+
+### WS11 — Documentation (spec 011) ✅
+- `/docs` on the marketing site: sidebar layout (`docs-nav.ts` tree, active
+  highlight, mobile toggle) + 8 MDX pages via `@next/mdx` — intro, getting
+  started, core concepts, SDK reference, API reference, webhooks (incl. HMAC
+  verification sample), AI features, FAQ/troubleshooting.
+- Linked from nav, footer, support card, and every features-page card
+  ("Learn more →"). ⬜ Real repo URL in two docs links (TODO-marked).
+
+### WS12 — OAuth login (spec 012) 🟡
+- Login page: seeded credentials removed (empty fields, no hint); "Continue
+  with Google/GitHub/Microsoft" buttons + "or continue with email" divider,
+  shown only when `/sso/options` reports the provider configured.
+- Backend: GitHub OAuth2 (`app/core/oauth_github.py`, verified-email
+  required) + `/sso/github/*`; **JIT personal accounts** for all global
+  social providers (tenant + system roles + ORG_ADMIN owner, audited as
+  `account.signup_social`); `BACKEND_URL` setting now drives redirect URIs.
+- Decision: no NextAuth — backend-driven OAuth per spec 002's design.
+- 🟡 Needs real Google/GitHub app credentials to activate.
+
+### WS13 — Platform super-admin (spec 013) ✅
+- `users.is_platform_admin` + `tenants.status` (dev migration + alembic
+  `0002_platform_admin`); suspension blocks management, delivery and preview
+  planes with `403 account_suspended`.
+- `/platform/*` router behind `require_platform_admin()`: overview (+30-day
+  signup series), accounts list/detail/suspend/reactivate, users
+  list/suspend/reactivate/**impersonate** (token pair + editor handoff),
+  revenue (MRR/ARR/by-plan/churn/events), usage vs limits (≥80% callout),
+  health (DB latency, webhook success rates, failures, sessions). All
+  sensitive actions audited as `platform.*` with the admin's identity.
+- New `superadmin/` Next.js app on :3003 (own dark theme, namespaced token
+  storage, login gated by `/platform/me`) + compose service; seed adds
+  `superadmin@example.com`.
+
+### WS14 — Deployment guide (spec 014) ✅
+- `DEPLOYMENT.md`: free-tier stack table (Vercel / Render / Neon / R2),
+  8-step walkthrough (OAuth app registration, alembic against hosted
+  Postgres, seed, verify checklist), explicit free-tier limitations, and the
+  fully-local docker-compose alternative. Linked from README.
+
+### WS15 — Rich text editor (spec 015) ✅
+- **JSON document model**: richtext fields now store versioned ProseMirror
+  JSON (`{ richTextSchemaVersion, type: 'doc', content }`) instead of HTML;
+  legacy HTML strings still load in the editor and render everywhere
+  (back-compat throughout).
+- **Editor** (`components/RichTextField.tsx` + `components/richtext/*`):
+  bold/italic/underline/strike/code, H1–H6, lists, quote, code block, rule,
+  **text color** + **highlight** (swatch popovers, custom hex, WCAG-AA
+  contrast warning, clear), **tables** (insert/row/col/header/merge/delete),
+  external + internal (entry/asset) links, **embedded entries** (block +
+  inline) and **assets** via the existing pickers, and a **"/" slash menu**.
+- **Custom TipTap nodes/marks** (`richtext/nodes.ts`) mirror the backend
+  catalogue; a NodeView renders live preview cards/pills.
+- **Field restrictions** (`FieldDef.rich_text`): allowed marks/nodes,
+  embeddable content types, color/highlight/tables/links toggles — enforced
+  in the editor (hidden controls) and backend (`app/core/richtext.py`
+  rejects disallowed node/mark types on publish; embeds of disallowed types
+  rejected in reference validation). Content-type builder gained the
+  restriction UI.
+- **Delivery/preview**: entries & assets embedded or linked inside richtext
+  are collected and resolved into `includes` up to the `include` depth
+  (`_collect_links` + `richtext.collect_ids`). Preview renders the JSON doc
+  (marks, tables, embeds) with a legacy-HTML fallback.
+- **AI sidebar**: extracts plain text from JSON docs for prompts and converts
+  AI output (HTML/text) into a valid TipTap JSON doc before insertion
+  (`richtext/convert.ts`) — never raw HTML dropped in.
+- ⬜ Preserving color/highlight marks through an AI rewrite is best-effort
+  (transforms replace field content). ⬜ Server-side HTML sanitization of
+  legacy string values if untrusted authors are ever allowed.
+
 ### Cross-cutting
 - Alembic scaffold + `0001_saas_upgrade` revision (production path); dev keeps
   boot-time migrations. OpenAPI export. New deps: authlib, stripe,
@@ -125,11 +203,18 @@ external credentials/deps to fully activate · ⬜ next.
 
 ## 3. Verification
 
-- Backend: **41 tests** across permissions, API-key scoping, validation,
-  accounts (signup/verify/refresh/reset/invite/isolation/switch), locales
-  (CRUD + fallback chains), versions/audit, billing limits (402/429 paths),
-  SSO (CRUD/lookup/enforcement/redirect/SAML gating), `fields.*` filters.
-- Frontends: `tsc --noEmit` clean; smoke via running dev stack.
+- Backend: **59 tests** — the SaaS + platform suite plus **10 rich text
+  tests** (spec 015): JSON validation (allowed/disallowed marks & nodes,
+  schema version, legacy HTML), embedded/linked id collection, publish
+  accept/reject paths, and delivery resolution of an entry embedded in
+  richtext. Prior additions still covered: GitHub
+  OAuth (options gating, authorize redirect, callback JIT provisioning +
+  no-duplicate re-login) and platform admin (403 gating, suspension across
+  management+delivery planes, user suspend/reactivate, audited
+  impersonation, overview series).
+- Frontends: `tsc --noEmit` clean in editor, preview, marketing, superadmin;
+  smoke via the running dev stack (all marketing/docs/superadmin routes 200,
+  live `/platform/overview` + `/platform/health` responses verified).
 
 ## 4. What will be implemented next (priority order)
 
@@ -148,5 +233,11 @@ external credentials/deps to fully activate · ⬜ next.
 7. **Ops** — Alembic autogenerate CI check, rate limiting per key (config
    exists on ApiKey), Redis-backed WS manager for multi-replica.
 8. **Brand polish** — final Ondros logo artwork (replace placeholder SVGs +
-   regenerate favicon), real docs/community/status links on the marketing
-   site, OG images per marketing page.
+   regenerate favicon), real status/community/social links + repo URLs on
+   the marketing site and docs, OG images per marketing page.
+9. **OAuth activation** — register real Google/GitHub apps per environment
+   (redirect URIs follow `BACKEND_URL`) and, for production, move refresh
+   tokens out of localStorage into httpOnly cookies.
+10. **Platform ops v2** — per-day API-call counters (today vs month),
+    request-error rate capture for the health page, superadmin audit viewer,
+    optional read-only operator role.

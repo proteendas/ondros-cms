@@ -16,8 +16,7 @@ const CHANNELS = [
     icon: <BookHalf size={20} />,
     title: 'Documentation',
     text: 'Guides for content modeling, the delivery API, SDK, webhooks, and SSO setup.',
-    // TODO: real docs site (spec 009)
-    link: { label: 'Read the docs →', href: '#docs' },
+    link: { label: 'Read the docs →', href: '/docs' },
   },
   {
     icon: <EnvelopeAt size={20} />,

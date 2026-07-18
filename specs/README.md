@@ -30,6 +30,12 @@ Rules:
 | 7 | [007-rebrand-branding.md](007-rebrand-branding.md) | Rebrand → Ondros CMS, central brand config, logo assets | **Implemented** (placeholder artwork) |
 | 8 | [008-icon-migration.md](008-icon-migration.md) | Emoji → Bootstrap Icons via central `Icon` wrapper | **Implemented** |
 | 9 | [009-marketing-site.md](009-marketing-site.md) | Public marketing site (landing/features/pricing/support) | **Implemented** (placeholder links) |
+| 10 | [010-marketing-polish.md](010-marketing-polish.md) | Responsive/hamburger nav, 3D hero (R3F), scroll reveals, token consolidation | **Implemented** |
+| 11 | [011-docs.md](011-docs.md) | `/docs` MDX documentation section on the marketing site | **Implemented** |
+| 12 | [012-oauth-login.md](012-oauth-login.md) | Login cleanup + Google/GitHub OAuth with JIT personal accounts | **Implemented** (needs OAuth app creds to activate) |
+| 13 | [013-superadmin.md](013-superadmin.md) | Platform super-admin: `/platform` API + independent dashboard app (:3003) | **Implemented** |
+| 14 | [014-deployment-guide.md](014-deployment-guide.md) | DEPLOYMENT.md free-tier hosting guide | **Implemented** |
+| 15 | [015-rich-text-editor.md](015-rich-text-editor.md) | Rich text: JSON model, color/highlight, tables, embeds, slash menu, restrictions | **Implemented** |
 
 ## Architecture invariants (all specs must respect)
 

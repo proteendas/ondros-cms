@@ -25,7 +25,7 @@ import type { IconName } from '@/components/ui/Icon';
 export const FIELD_TYPE_INFO: Record<FieldType, { label: string; icon: IconName; hint: string }> = {
   text: { label: 'Short text', icon: 'field-text', hint: 'Titles, names, labels' },
   longtext: { label: 'Long text', icon: 'field-longtext', hint: 'Multi-line plain text' },
-  richtext: { label: 'Rich text', icon: 'field-richtext', hint: 'Formatted HTML content' },
+  richtext: { label: 'Rich text', icon: 'field-richtext', hint: 'Structured rich text (color, tables, embeds)' },
   number: { label: 'Number', icon: 'field-number', hint: 'Integer or decimal' },
   boolean: { label: 'Boolean', icon: 'field-boolean', hint: 'True / false toggle' },
   datetime: { label: 'Date & time', icon: 'field-datetime', hint: 'ISO date/time' },
@@ -51,6 +51,16 @@ export interface FieldValidations {
   max_items?: number | null;
 }
 
+export interface RichTextConfig {
+  allowed_marks?: string[] | null;
+  allowed_nodes?: string[] | null;
+  allowed_embed_types?: string[];
+  allow_color?: boolean;
+  allow_highlight?: boolean;
+  allow_tables?: boolean;
+  allow_links?: boolean;
+}
+
 export interface FieldDef {
   id: string;
   name: string;
@@ -58,6 +68,8 @@ export interface FieldDef {
   localized?: boolean;
   validations: FieldValidations;
   allowed_content_types?: string[];
+  /** Restrictions for richtext fields (spec 015). */
+  rich_text?: RichTextConfig | null;
   help_text?: string;
   ai_hint?: string;
 }

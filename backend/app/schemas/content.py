@@ -65,6 +65,20 @@ class FieldValidations(BaseModel):
     max_items: int | None = None
 
 
+class RichTextConfig(BaseModel):
+    """Per-field rich text restrictions (spec 015). ``None`` allowed_* means
+    "all supported"; the editor hides disallowed controls and the backend
+    rejects entries that use disallowed node/mark types."""
+    allowed_marks: list[str] | None = None
+    allowed_nodes: list[str] | None = None
+    # Content type api_ids permitted as embedded entries. Empty = any.
+    allowed_embed_types: list[str] = []
+    allow_color: bool = True
+    allow_highlight: bool = True
+    allow_tables: bool = True
+    allow_links: bool = True
+
+
 class FieldDef(BaseModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]*$", description="Machine name, used as key in Entry.fields")
     name: str
@@ -74,6 +88,8 @@ class FieldDef(BaseModel):
     # For reference / reference_many: content type api_ids allowed as targets.
     # Empty list = any content type in the environment.
     allowed_content_types: list[str] = []
+    # For richtext fields: toolbar/embed restrictions (spec 015).
+    rich_text: RichTextConfig | None = None
     help_text: str = ""
     # Free-form hint injected into AI prompts, e.g. "Meta description, max 160 chars".
     ai_hint: str = ""

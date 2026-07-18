@@ -106,3 +106,93 @@ async def test_saml_runtime_gated(client, workspace):
     assert res.status_code == 201
     res = await client.get(f"/sso/{ws['tenant'].slug}/login", follow_redirects=False)
     assert res.status_code == 501  # python3-saml not installed
+
+
+# --- Spec 012: GitHub OAuth + social JIT provisioning ------------------------------
+
+
+async def test_sso_options_gates_github(client, workspace, monkeypatch):
+    import app.api.sso as sso
+
+    res = await client.get("/sso/options")
+    assert res.json()["github"] is False
+    res = await client.get("/sso/github/login", follow_redirects=False)
+    assert res.status_code == 404
+
+    monkeypatch.setattr(sso.settings, "github_client_id", "gh-client")
+    res = await client.get("/sso/options")
+    assert res.json()["github"] is True
+
+
+async def test_github_login_redirects_with_state(client, workspace, monkeypatch):
+    import app.api.sso as sso
+
+    monkeypatch.setattr(sso.settings, "github_client_id", "gh-client")
+    res = await client.get("/sso/github/login", follow_redirects=False)
+    assert res.status_code == 302
+    location = res.headers["location"]
+    assert location.startswith("https://github.com/login/oauth/authorize?")
+    assert "client_id=gh-client" in location
+    assert "state=" in location
+    # Redirect URI derives from settings.backend_url (spec 012).
+    assert "redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fsso%2Fgithub%2Fcallback" in location
+
+
+async def test_github_callback_jit_provisions_personal_account(
+    client, workspace, db_maker, monkeypatch
+):
+    """Unknown email through GitHub -> personal Account + ORG_ADMIN user + pair."""
+    from sqlalchemy import select
+
+    import app.api.sso as sso
+    from app.core.security import create_state_token
+    from app.models import AccountMember, AuditLog, Tenant, User
+
+    monkeypatch.setattr(sso.settings, "github_client_id", "gh-client")
+    monkeypatch.setattr(sso.settings, "github_client_secret", "gh-secret")
+
+    async def fake_exchange(client_id, client_secret, code, redirect_uri):
+        return {"email": "newcomer@somewhere-zzz.com", "name": "New Comer"}
+
+    monkeypatch.setattr(sso.oauth_github, "exchange_code", fake_exchange)
+
+    state = create_state_token({"slug": "github"})
+    res = await client.get(
+        f"/sso/github/callback?code=abc&state={state}", follow_redirects=False
+    )
+    assert res.status_code == 302, res.text
+    assert "#access=" in res.headers["location"]
+    assert "refresh=" in res.headers["location"]
+
+    async with db_maker() as db:
+        user = (
+            await db.execute(select(User).where(User.email == "newcomer@somewhere-zzz.com"))
+        ).scalars().one()
+        assert user.email_verified is True
+        assert user.hashed_password == "!sso!"
+        account = (await db.execute(select(Tenant).where(Tenant.id == user.tenant_id))).scalars().one()
+        assert "Workspace" in account.name
+        member = (
+            await db.execute(
+                select(AccountMember).where(
+                    AccountMember.user_id == user.id, AccountMember.tenant_id == account.id
+                )
+            )
+        ).scalars().one()
+        assert member.is_owner is True
+        roles = {a.role.name for a in user.assignments}
+        assert "ORG_ADMIN" in roles
+        audit_row = (
+            await db.execute(select(AuditLog).where(AuditLog.action == "account.signup_social"))
+        ).scalars().one()
+        assert audit_row.diff["provider"] == "github"
+
+    # Second sign-in: same user, no duplicate account.
+    res = await client.get(
+        f"/sso/github/callback?code=abc&state={create_state_token({'slug': 'github'})}",
+        follow_redirects=False,
+    )
+    assert res.status_code == 302
+    async with db_maker() as db:
+        count = len((await db.execute(select(User).where(User.email == "newcomer@somewhere-zzz.com"))).scalars().all())
+        assert count == 1

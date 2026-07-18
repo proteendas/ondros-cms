@@ -1,0 +1,100 @@
+# SDK Reference
+
+`@ondros/sdk` is a typed, zero-dependency client for the delivery and preview
+APIs. It works anywhere `fetch` exists: Next.js (server or client), Remix,
+Node 18+, edge runtimes.
+
+```bash
+npm install file:../sdk   # monorepo path — or copy sdk/src/index.ts (zero deps)
+```
+
+## createClient(config)
+
+```ts
+import { createClient } from '@ondros/sdk';
+
+const client = createClient({
+  host: 'http://localhost:8000',   // API origin
+  spaceId: '<space-id>',
+  environment: 'master',           // optional, default "master"
+  accessToken: 'cms_del_…',        // delivery or preview token
+  previewHost: undefined,          // optional separate preview origin
+  retries: 3,                      // 429/5xx retried with backoff + jitter
+  cache: { ttlMs: 30_000 },        // stale-while-revalidate; false to disable
+  fetch: fetch,                    // inject Next's fetch for ISR revalidation
+});
+```
+
+The client automatically targets the preview plane when `accessToken` starts
+with `cms_pre_`.
+
+## client.getEntries(query)
+
+```ts
+const res = await client.getEntries({
+  contentType: 'article',
+  q: 'launch',                  // full-text over slug + fields
+  locale: 'fr',                 // fallback chain applies server-side; '*' = raw maps
+  include: 2,                   // link resolution depth 0–3
+  order: '-published_at',
+  limit: 10,
+  skip: 0,
+  'fields.category': 'tech',    // exact-match field filters (localized values match any locale)
+});
+
+res.items;                      // CmsEntry[]
+res.total;                      // total matches (for pagination)
+res.includes;                   // linked entries/assets keyed by id
+const author = res.resolve(res.items[0].fields.author);
+```
+
+## client.getEntry / getEntryBySlug
+
+```ts
+const { entry, resolve } = await client.getEntry({ id: 'entry-id', locale: 'en-US', include: 2 });
+
+const page = await client.getEntryBySlug({ contentType: 'landing_page', slug: 'home', include: 2 });
+const hero = page.resolve(page.entry?.fields.hero);
+const cards = (page.entry?.fields.sections as string[]).map(page.resolve);
+```
+
+## client.getAssets / getAsset
+
+```ts
+const { items } = await client.getAssets({ q: 'logo', limit: 20 });
+const asset = await client.getAsset({ id: 'asset-id' });
+asset.url;        // file URL
+asset.variants;   // e.g. thumbnails
+```
+
+## Link resolution
+
+Two options:
+
+- Server-side: pass `include: 1–3` — linked entries/assets arrive in
+  `includes` and `resolve(id)` looks them up.
+- Client-side deep inlining: `resolveLinks(entry, includes, maxDepth)` replaces
+  reference ids inside `fields` with the actual objects.
+
+## Errors & retries
+
+Failed requests throw `CmsApiError` with `.status` and `.detail`. Requests that
+return 429 or 5xx are retried automatically (`Retry-After` respected,
+exponential backoff + jitter otherwise).
+
+## TypeScript types & the CLI
+
+`ondros-cli` generates interfaces from your live content model:
+
+```bash
+node cli/bin/ondros-cli.mjs login                  # stores tokens in ~/.ondrosrc.json
+node cli/bin/ondros-cli.mjs spaces                 # list space ids
+node cli/bin/ondros-cli.mjs types export <spaceId> # back up the model as JSON
+node cli/bin/ondros-cli.mjs generate-types <spaceId> --out cms-types.ts
+```
+
+Generated types include enum unions for `select` fields, so
+`entry.fields.category` narrows to the exact allowed strings.
+
+Next: the raw [API Reference](/docs/api) for everything beyond content
+delivery.

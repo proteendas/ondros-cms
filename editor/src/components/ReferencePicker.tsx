@@ -144,7 +144,7 @@ export default function ReferencePicker({
   );
 }
 
-function ReferenceSearchModal({
+export function ReferenceSearchModal({
   envPath,
   types,
   allowedContentTypes,

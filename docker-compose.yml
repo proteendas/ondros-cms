@@ -5,6 +5,7 @@
 #              media library, settings, AI sidebar, live preview)
 #   preview -> Next.js preview/delivery site (draft mode + inline-editing bridge)
 #   marketing -> Next.js public marketing/brand site for Ondros CMS (:3002)
+#   superadmin -> Next.js platform-operator dashboard (:3003, spec 013)
 #
 # Copy .env.example to .env (set an AI provider if you want AI features), then:
 #   docker compose up -d
@@ -38,8 +39,17 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://cms:cms@db:5432/cms
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
-      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:3003
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # --- Social OAuth (specs 002 + 012) ------------------------------------
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       # --- AI provider (see .env.example; groq/gemini/ollama are free) ------
       AI_PROVIDER: ${AI_PROVIDER:-}
       AI_API_KEY: ${AI_API_KEY:-}
@@ -108,9 +118,24 @@ services:
       - ./marketing:/app
       - marketing_node_modules:/app/node_modules
 
+  superadmin:
+    build: ./superadmin
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      # Impersonation sessions open the editor app here (spec 013).
+      NEXT_PUBLIC_EDITOR_URL: http://localhost:3000
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./superadmin:/app
+      - superadmin_node_modules:/app/node_modules
+
 volumes:
   pgdata:
   backend_media:
   editor_node_modules:
   preview_node_modules:
   marketing_node_modules:
+  superadmin_node_modules:

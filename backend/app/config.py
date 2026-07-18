@@ -41,6 +41,9 @@ class Settings(BaseSettings):
 
     # Base URL of the editor app (email links, SSO redirects).
     frontend_url: str = "http://localhost:3000"
+    # Public base URL of this API — used to build OAuth redirect URIs
+    # ({backend_url}/sso/{provider}/callback); set per environment (spec 012).
+    backend_url: str = "http://localhost:8000"
 
     # SMTP (leave host empty to log emails instead of sending).
     smtp_host: str = ""
@@ -55,6 +58,8 @@ class Settings(BaseSettings):
     microsoft_client_id: str = ""
     microsoft_client_secret: str = ""
     microsoft_tenant: str = "common"
+    github_client_id: str = ""
+    github_client_secret: str = ""
 
     # Billing
     stripe_secret_key: str = ""

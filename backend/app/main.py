@@ -46,6 +46,7 @@ from app.api import (
     guidelines,
     locales,
     media,
+    platform_admin,
     spaces,
     sso,
     users,
@@ -134,6 +135,7 @@ app.include_router(delivery.router)
 app.include_router(ai.router)
 app.include_router(guidelines.router)
 app.include_router(users.router)
+app.include_router(platform_admin.router)
 app.include_router(ws.router)
 
 app.mount("/files", StaticFiles(directory=settings.media_root, check_dir=False), name="files")
