@@ -235,7 +235,7 @@ label.field-label {
   padding: 16px;
   box-shadow: var(--shadow-sm);
 }
-.card + .card { margin-top: 14px; }
+
 .card h2:first-child { margin-top: 0; }
 
 .card-grid {
