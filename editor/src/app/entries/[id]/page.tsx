@@ -42,6 +42,7 @@ const NEXT_STATUS: Record<EntryStatus, { label: string; to: EntryStatus; primary
   published: [
     { label: 'Unpublish', to: 'draft' },
     { label: 'Archive', to: 'archived' },
+    { label: 'Publish changes', to: 'published', primary: true },
   ],
   archived: [{ label: 'Restore to draft', to: 'draft' }],
 };
@@ -106,7 +107,9 @@ export default function EntryEditorPage() {
         method: 'PATCH',
         body: JSON.stringify({ fields: patch }),
       });
-      setEntry((prev) => (prev ? { ...prev, version: updated.version, status: updated.status } : updated));
+      setEntry((prev) =>
+        prev ? { ...prev, version: updated.version, status: updated.status, fields: updated.fields } : updated,
+      );
       setSaveState('saved');
     } catch (e) {
       setSaveState('error');
@@ -225,6 +228,14 @@ export default function EntryEditorPage() {
   if (error && !entry) return <p className="error-text">{error}</p>;
   if (!entry || !contentType) return <p className="muted">Loading…</p>;
 
+  const hasUnpublishedChanges =
+    entry.status === 'published' &&
+    JSON.stringify(entry.fields ?? {}) !== JSON.stringify(entry.published_fields ?? {});
+
+  const nextActions = NEXT_STATUS[entry.status].filter(
+    (action) => action.to !== entry.status || (action.to === 'published' && hasUnpublishedChanges),
+  );
+
   const showForm = pane !== 'preview';
   const showPreview = pane !== 'form';
 
@@ -257,8 +268,8 @@ export default function EntryEditorPage() {
           <Icon name="history" size={13} /> History
         </button>
         {can('publish_entries') &&
-          NEXT_STATUS[entry.status].map(({ label, to, primary }) => (
-            <button key={to} className={`btn${primary ? '' : ' secondary'}`} onClick={() => transition(to)}>
+          nextActions.map(({ label, to, primary }) => (
+            <button key={label} className={`btn${primary ? '' : ' secondary'}`} onClick={() => transition(to)}>
               {label}
             </button>
           ))}

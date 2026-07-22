@@ -505,9 +505,13 @@ async def _transition(
     db: AsyncSession, actor: Actor, entry: Entry, target: str, env: Environment | None
 ) -> Entry:
     ensure_can(actor, Capability.PUBLISH_ENTRIES.value, entry.space_id)
-    if target == entry.status:
+    # Republishing (already published, target is published again) pushes the
+    # latest draft fields into published_fields — everything else is a no-op
+    # if the status hasn't changed.
+    republishing = target == entry.status == EntryStatus.published.value
+    if target == entry.status and not republishing:
         return entry
-    if target not in ALLOWED_TRANSITIONS.get(entry.status, set()):
+    if not republishing and target not in ALLOWED_TRANSITIONS.get(entry.status, set()):
         raise HTTPException(
             status_code=422, detail=f"Cannot transition from '{entry.status}' to '{target}'"
         )
