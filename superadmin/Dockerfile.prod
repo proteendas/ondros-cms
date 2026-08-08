@@ -6,14 +6,18 @@ WORKDIR /app
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_EDITOR_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_EDITOR_URL=$NEXT_PUBLIC_EDITOR_URL \
-    NODE_ENV=production
+    NEXT_PUBLIC_EDITOR_URL=$NEXT_PUBLIC_EDITOR_URL
 
+# NODE_ENV=production must not be set before `npm install` — it makes npm
+# skip devDependencies, which is where `typescript` lives; without it
+# Next.js can't parse tsconfig.json's `paths` and every `@/...` import
+# fails to resolve. Set it only for the runtime CMD below.
 COPY package.json ./
 RUN npm install
 
 COPY . .
 RUN npm run build
 
+ENV NODE_ENV=production
 EXPOSE 3003
 CMD ["npm", "start"]

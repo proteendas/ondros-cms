@@ -6,14 +6,18 @@ WORKDIR /app
 # CMS_API_URL / CMS_PREVIEW_TOKEN / CMS_DELIVERY_TOKEN are server-only and
 # stay as plain runtime env vars in docker-compose.prod.yml.
 ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NODE_ENV=production
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
+# NODE_ENV=production must not be set before `npm ci` — it makes npm skip
+# devDependencies, which is where `typescript` lives; without it Next.js
+# can't parse tsconfig.json's `paths` and every `@/...` import fails to
+# resolve. Set it only for the runtime CMD below.
 COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
 RUN npm run build
 
+ENV NODE_ENV=production
 EXPOSE 3001
 CMD ["npm", "start"]

@@ -6,14 +6,18 @@ WORKDIR /app
 ARG NEXT_PUBLIC_APP_LOGIN_URL
 ARG NEXT_PUBLIC_APP_SIGNUP_URL
 ENV NEXT_PUBLIC_APP_LOGIN_URL=$NEXT_PUBLIC_APP_LOGIN_URL \
-    NEXT_PUBLIC_APP_SIGNUP_URL=$NEXT_PUBLIC_APP_SIGNUP_URL \
-    NODE_ENV=production
+    NEXT_PUBLIC_APP_SIGNUP_URL=$NEXT_PUBLIC_APP_SIGNUP_URL
 
+# NODE_ENV=production must not be set before `npm ci` — it makes npm skip
+# devDependencies, which is where `typescript` lives; without it Next.js
+# can't parse tsconfig.json's `paths` and every `@/...` import fails to
+# resolve. Set it only for the runtime CMD below.
 COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
 RUN npm run build
 
+ENV NODE_ENV=production
 EXPOSE 3002
 CMD ["npm", "start"]
