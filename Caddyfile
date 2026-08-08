@@ -1,0 +1,15 @@
+app.{$PUBLIC_HOST} {
+  reverse_proxy editor:3000
+}
+api.{$PUBLIC_HOST} {
+  reverse_proxy backend:8000
+}
+preview.{$PUBLIC_HOST} {
+  reverse_proxy preview:3001
+}
+{$PUBLIC_HOST} {
+  reverse_proxy marketing:3002
+}
+admin.{$PUBLIC_HOST} {
+  reverse_proxy superadmin:3003
+}

@@ -1,0 +1,19 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# NEXT_PUBLIC_API_URL is inlined into the client bundle at build time.
+# CMS_API_URL / CMS_PREVIEW_TOKEN / CMS_DELIVERY_TOKEN are server-only and
+# stay as plain runtime env vars in docker-compose.prod.yml.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NODE_ENV=production
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+EXPOSE 3001
+CMD ["npm", "start"]

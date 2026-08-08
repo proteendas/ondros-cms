@@ -1,0 +1,22 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, so they
+# must arrive as build args (not just runtime env) — see docker-compose.prod.yml.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_PREVIEW_URL
+ARG NEXT_PUBLIC_PREVIEW_TOKEN
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_PREVIEW_URL=$NEXT_PUBLIC_PREVIEW_URL \
+    NEXT_PUBLIC_PREVIEW_TOKEN=$NEXT_PUBLIC_PREVIEW_TOKEN \
+    NODE_ENV=production
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+EXPOSE 3000
+CMD ["npm", "start"]

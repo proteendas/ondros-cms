@@ -1,0 +1,161 @@
+# Production stack for a single EC2 instance, fronted by Caddy (automatic
+# HTTPS via Let's Encrypt) for every public hostname:
+#   app.<host>      -> editor      (Next.js visual editor)
+#   api.<host>      -> backend     (FastAPI)
+#   preview.<host>  -> preview     (Next.js preview/delivery site)
+#   <host>          -> marketing   (Next.js marketing site)
+#   admin.<host>    -> superadmin  (Next.js platform-operator dashboard)
+#
+# Only Caddy publishes ports to the host (80/443); every app service is
+# reachable only on the internal compose network, and NEXT_PUBLIC_* values
+# are baked into each Next.js build at image-build time (Next.js inlines them
+# into the client bundle — setting them as plain runtime env vars afterwards
+# has no effect), so `--build` is required whenever PUBLIC_HOST changes.
+#
+# Setup on the EC2 instance:
+#   cp .env.example .env   # fill in real secrets; PUBLIC_HOST defaults to
+#                          # the hostname baked into ./Caddyfile below
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml exec backend python -m app.seed
+#
+# Security group must allow inbound 80 and 443 (Caddy needs 80 for the
+# ACME HTTP-01 challenge even though it redirects to 443 afterwards).
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a strong POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-cms}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cms} -d ${POSTGRES_DB:-cms}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cms}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-cms}
+      JWT_SECRET: ${JWT_SECRET:?set a strong JWT_SECRET in .env}
+      CORS_ORIGINS: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},https://preview.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},https://admin.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},https://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      AUTH_DEV_MODE: ${AUTH_DEV_MODE:-false}
+      BILLING_DEV_MODE: ${BILLING_DEV_MODE:-true}
+      # --- Social OAuth (specs 002 + 012) ------------------------------------
+      BACKEND_URL: https://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+      FRONTEND_URL: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      # --- Outbound email (verification / reset / invite) --------------------
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      # --- Billing (spec 005) -------------------------------------------------
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      # --- AI provider (see .env.example; groq/gemini/ollama are free) ------
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-}
+      AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1536}
+      # --- Azure OpenAI (only when AI_PROVIDER=azure_openai) ----------------
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-06-01}
+      AZURE_OPENAI_CHAT_DEPLOYMENT: ${AZURE_OPENAI_CHAT_DEPLOYMENT:-gpt-4o}
+      AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-text-embedding-3-small}
+      # --- Seeded API tokens (rotate before/after seeding a public instance) -
+      SEED_DELIVERY_TOKEN: ${SEED_DELIVERY_TOKEN:-cms_del_dev-delivery-token-0000}
+      SEED_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
+    volumes:
+      - backend_media:/app/media
+
+  editor:
+    build:
+      context: ./editor
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+        NEXT_PUBLIC_PREVIEW_URL: https://preview.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+        NEXT_PUBLIC_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  preview:
+    build:
+      context: ./preview
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Server-side fetches go over the Docker network; the browser uses the
+      # public api.<host> hostname (baked into the client bundle above).
+      CMS_API_URL: http://backend:8000
+      CMS_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
+      CMS_DELIVERY_TOKEN: ${SEED_DELIVERY_TOKEN:-cms_del_dev-delivery-token-0000}
+
+  marketing:
+    build:
+      context: ./marketing
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_APP_LOGIN_URL: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}/login
+        NEXT_PUBLIC_APP_SIGNUP_URL: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}/signup
+    restart: unless-stopped
+
+  superadmin:
+    build:
+      context: ./superadmin
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+        NEXT_PUBLIC_EDITOR_URL: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - editor
+      - backend
+      - preview
+      - marketing
+      - superadmin
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  backend_media:
+  caddy_data:
+  caddy_config:
