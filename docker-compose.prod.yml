@@ -1,12 +1,18 @@
-# Production stack for a single EC2 instance, fronted by Caddy (automatic
-# HTTPS via Let's Encrypt) for every public hostname:
+# Production stack for a single EC2 instance, fronted by Caddy for every
+# public hostname:
 #   app.<host>      -> editor      (Next.js visual editor)
 #   api.<host>      -> backend     (FastAPI)
 #   preview.<host>  -> preview     (Next.js preview/delivery site)
 #   <host>          -> marketing   (Next.js marketing site)
 #   admin.<host>    -> superadmin  (Next.js platform-operator dashboard)
 #
-# Only Caddy publishes ports to the host (80/443); every app service is
+# HTTP only for now — Let's Encrypt refuses to issue certs for
+# *.compute.amazonaws.com hostnames ("forbidden by policy"), so ./Caddyfile
+# has auto_https disabled. Point PUBLIC_HOST at a real domain you own later
+# to get automatic HTTPS back (see the Caddyfile comment for the two-line
+# change), and switch every http:// below back to https://.
+#
+# Only Caddy publishes a port to the host (80); every app service is
 # reachable only on the internal compose network, and NEXT_PUBLIC_* values
 # are baked into each Next.js build at image-build time (Next.js inlines them
 # into the client bundle — setting them as plain runtime env vars afterwards
@@ -18,8 +24,7 @@
 #   docker compose -f docker-compose.prod.yml up -d --build
 #   docker compose -f docker-compose.prod.yml exec backend python -m app.seed
 #
-# Security group must allow inbound 80 and 443 (Caddy needs 80 for the
-# ACME HTTP-01 challenge even though it redirects to 443 afterwards).
+# Security group must allow inbound 80.
 
 services:
   db:
@@ -46,13 +51,13 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cms}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-cms}
       JWT_SECRET: ${JWT_SECRET:?set a strong JWT_SECRET in .env}
-      CORS_ORIGINS: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},https://preview.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},https://admin.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},https://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+      CORS_ORIGINS: http://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},http://preview.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},http://admin.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com},http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       AUTH_DEV_MODE: ${AUTH_DEV_MODE:-false}
       BILLING_DEV_MODE: ${BILLING_DEV_MODE:-true}
       # --- Social OAuth (specs 002 + 012) ------------------------------------
-      BACKEND_URL: https://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
-      FRONTEND_URL: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+      BACKEND_URL: http://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+      FRONTEND_URL: http://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
@@ -92,8 +97,8 @@ services:
       context: ./editor
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_API_URL: https://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
-        NEXT_PUBLIC_PREVIEW_URL: https://preview.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+        NEXT_PUBLIC_API_URL: http://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+        NEXT_PUBLIC_PREVIEW_URL: http://preview.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
         NEXT_PUBLIC_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
     restart: unless-stopped
     depends_on:
@@ -104,7 +109,7 @@ services:
       context: ./preview
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_API_URL: https://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+        NEXT_PUBLIC_API_URL: http://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
     restart: unless-stopped
     depends_on:
       - backend
@@ -120,8 +125,8 @@ services:
       context: ./marketing
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_APP_LOGIN_URL: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}/login
-        NEXT_PUBLIC_APP_SIGNUP_URL: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}/signup
+        NEXT_PUBLIC_APP_LOGIN_URL: http://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}/login
+        NEXT_PUBLIC_APP_SIGNUP_URL: http://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}/signup
     restart: unless-stopped
 
   superadmin:
@@ -129,8 +134,8 @@ services:
       context: ./superadmin
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_API_URL: https://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
-        NEXT_PUBLIC_EDITOR_URL: https://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+        NEXT_PUBLIC_API_URL: http://api.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
+        NEXT_PUBLIC_EDITOR_URL: http://app.${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
     restart: unless-stopped
     depends_on:
       - backend
@@ -148,7 +153,6 @@ services:
       PUBLIC_HOST: ${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
