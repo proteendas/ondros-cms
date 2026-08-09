@@ -4,8 +4,10 @@
 #   <host>:3000 -> editor      (Next.js visual editor)
 #   <host>:8000 -> backend     (FastAPI)
 #   <host>:3001 -> preview     (Next.js preview/delivery site)
-#   <host>:3002 -> marketing   (Next.js marketing site)
 #   <host>:3003 -> superadmin  (Next.js platform-operator dashboard)
+#
+# The marketing/brand site lives in its own repo (ondros-cms-site) and
+# deploys separately to Vercel — it is not part of this stack.
 #
 # HTTP only for now — Let's Encrypt also refuses to issue certs for
 # *.compute.amazonaws.com hostnames ("forbidden by policy"), so ./Caddyfile
@@ -25,7 +27,7 @@
 #   docker compose -f docker-compose.prod.yml up -d --build
 #   docker compose -f docker-compose.prod.yml exec backend python -m app.seed
 #
-# Security group must allow inbound 3000, 3001, 3002, 3003, 8000.
+# Security group must allow inbound 3000, 3001, 3003, 8000.
 
 services:
   db:
@@ -52,7 +54,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cms}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-cms}
       JWT_SECRET: ${JWT_SECRET:?set a strong JWT_SECRET in .env}
-      CORS_ORIGINS: http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3000,http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3001,http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3002,http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3003
+      CORS_ORIGINS: http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3000,http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3001,http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3003
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       AUTH_DEV_MODE: ${AUTH_DEV_MODE:-false}
       BILLING_DEV_MODE: ${BILLING_DEV_MODE:-true}
@@ -121,15 +123,6 @@ services:
       CMS_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
       CMS_DELIVERY_TOKEN: ${SEED_DELIVERY_TOKEN:-cms_del_dev-delivery-token-0000}
 
-  marketing:
-    build:
-      context: ./marketing
-      dockerfile: Dockerfile.prod
-      args:
-        NEXT_PUBLIC_APP_LOGIN_URL: http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3000/login
-        NEXT_PUBLIC_APP_SIGNUP_URL: http://${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}:3000/signup
-    restart: unless-stopped
-
   superadmin:
     build:
       context: ./superadmin
@@ -148,14 +141,12 @@ services:
       - editor
       - backend
       - preview
-      - marketing
       - superadmin
     environment:
       PUBLIC_HOST: ${PUBLIC_HOST:-ec2-54-206-170-82.ap-southeast-2.compute.amazonaws.com}
     ports:
       - "3000:3000"
       - "3001:3001"
-      - "3002:3002"
       - "3003:3003"
       - "8000:8000"
     volumes:

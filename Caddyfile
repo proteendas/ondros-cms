@@ -18,9 +18,6 @@ http://{$PUBLIC_HOST}:8000 {
 http://{$PUBLIC_HOST}:3001 {
   reverse_proxy preview:3001
 }
-http://{$PUBLIC_HOST}:3002 {
-  reverse_proxy marketing:3002
-}
 http://{$PUBLIC_HOST}:3003 {
   reverse_proxy superadmin:3003
 }

@@ -32,9 +32,13 @@ docker compose exec backend python -m app.seed
 |-----------|----------------------------|------------------------------------------------|
 | Editor    | http://localhost:3000      | `admin@example.com`/`admin123` (org admin), `editor@example.com`/`editor123` (space editor) |
 | Preview   | http://localhost:3001      | Site frontend; published content + draft mode  |
-| Marketing | http://localhost:3002      | Public Ondros CMS brand site (landing/features/pricing/docs/support) |
 | Superadmin| http://localhost:3003      | Platform-operator dashboard — `superadmin@example.com`/`super123` |
 | API docs  | http://localhost:8000/docs | Swagger UI (use `/auth/token` to authorize)    |
+
+The public marketing/brand site (landing/features/pricing/docs/support)
+lives in its own repo, [ondros-cms-site](https://github.com/proteendas/ondros-cms-site),
+deployed separately on Vercel. Its Login / Get Started CTAs point at this
+app's editor via `NEXT_PUBLIC_APP_LOGIN_URL` / `NEXT_PUBLIC_APP_SIGNUP_URL`.
 
 Deploying somewhere other than your laptop? [DEPLOYMENT.md](DEPLOYMENT.md)
 covers a full free-tier hosting path (Vercel + Render/Railway +
@@ -161,14 +165,14 @@ editor/                      Next.js visual editor (app shell, model builder,
                              settings: api-keys/environments/webhooks/roles)
 preview/                     Next.js site (delivery/preview API, draft mode,
                              nested assembly rendering, inline-editing bridge)
-marketing/                   Next.js public marketing site (Ondros brand,
-                             pricing, /docs MDX documentation, support;
-                             CTAs -> app via env URLs; R3F hero)
 superadmin/                  Next.js platform-operator dashboard (:3003 —
                              accounts/users/revenue/usage/health, impersonation)
 sdk/                         @ondros/sdk TypeScript SDK
 cli/                         ondros-cli (login, types export/import, codegen)
 ```
+
+The public marketing/brand site is a separate repo, `ondros-cms-site`
+(Next.js, Vercel-hosted) — see the Quickstart section above.
 
 ## Production notes
 

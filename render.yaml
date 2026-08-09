@@ -11,9 +11,11 @@
 #      "Root Directory" to `backend` (Dockerfile Path becomes `Dockerfile`,
 #      relative to that root) — same fix, no blueprint required.
 #
-# The Next.js apps (editor/marketing/preview/superadmin) are NOT declared
-# here — DEPLOYMENT.md deploys those to Vercel instead, one project per app
-# with "Root Directory" set to the app folder.
+# The Next.js apps (editor/preview/superadmin) are NOT declared here —
+# DEPLOYMENT.md deploys those to Vercel instead, one project per app with
+# "Root Directory" set to the app folder. The marketing/brand site lives in
+# its own repo (ondros-cms-site) and deploys to Vercel independently — it
+# makes no backend calls, so it isn't part of this service's CORS origins.
 services:
   - type: web
     name: ondros-backend
@@ -32,7 +34,7 @@ services:
       - key: FRONTEND_URL
         sync: false # https://<your-editor>.vercel.app
       - key: CORS_ORIGINS
-        sync: false # comma-separated editor/preview/marketing/superadmin URLs
+        sync: false # comma-separated editor/preview/superadmin URLs
       - key: AUTH_DEV_MODE
         value: "false"
       - key: BILLING_DEV_MODE
