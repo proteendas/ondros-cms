@@ -101,7 +101,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           );
         })}
         <button
-          className="btn ghost small"
+          className="btn ghost small sidebar-signout"
           style={{ margin: '14px 12px 0', justifyContent: 'center' }}
           onClick={() => {
             clearTokens();

@@ -103,10 +103,15 @@ code { font-family: var(--mono); font-size: 12.5px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 
+/* This file only defines .spacer under .page-head and .row, so the topbar
+   needs its own — without it the sign-out button sits against the brand
+   instead of at the far edge. */
+.sa-topbar .spacer { flex: 1; }
+
 @media (max-width: 800px) {
   .sa-topbar {
-    display: flex; align-items: center; gap: 10px;
-    height: 54px; padding: 0 12px;
+    display: flex; align-items: center; gap: 12px;
+    height: 56px; padding: 0 14px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     position: sticky; top: 0; z-index: 40;
@@ -128,6 +133,9 @@ code { font-family: var(--mono); font-size: 12.5px; }
 
   .shell { flex-direction: column; }
   .main { padding: 18px 16px 50px; }
+
+  /* The topbar already has a sign-out; a second one in the drawer is noise. */
+  .sidebar-signout { display: none; }
 
   /* Wide tables scroll themselves instead of scrolling the page. */
   .main table { min-width: 560px; }
