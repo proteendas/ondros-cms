@@ -2,158 +2,106 @@
 
 /**
  * Central icon wrapper (spec 008). ALL app iconography goes through this
- * semantic-name → Bootstrap Icon map, so swapping the icon set (or a single
- * glyph) is a one-file change. Icons inherit `currentColor`, so design-token
+ * semantic-name → Bootstrap Icons map, so swapping the icon set (or a single
+ * glyph) is a one-file change.
+ *
+ * Icons are the Bootstrap Icons **webfont**: this renders `<i class="bi bi-…">`
+ * and the stylesheet is imported once in `app/layout.tsx`. Because they are
+ * font glyphs they inherit `currentColor` and `font-size`, so design-token
  * colors apply automatically.
  *
  * Usage: <Icon name="webhook" />  ·  <Icon name="delete" size={14} />
+ *
+ * Never write `<i className="bi bi-…">` at a call site and never inline an
+ * SVG — add a semantic name here instead (see CLAUDE.md).
  */
 import type { CSSProperties } from 'react';
-import {
-  ArrowClockwise,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
-  BookHalf,
-  BoxArrowUpRight,
-  Boxes,
-  Braces,
-  Bricks,
-  Broadcast,
-  Bullseye,
-  Calendar3,
-  CameraVideo,
-  CardHeading,
-  Check2,
-  CheckCircle,
-  ClockHistory,
-  CreditCard,
-  Diagram3,
-  Envelope,
-  Github,
-  ExclamationTriangle,
-  Eye,
-  EyeSlash,
-  FileEarmarkPdf,
-  FileEarmarkText,
-  Folder2Open,
-  Fonts,
-  Globe2,
-  Highlighter,
-  GripVertical,
-  Hash,
-  Image as ImageIcon,
-  Images,
-  JournalText,
-  JustifyLeft,
-  Key,
-  Lightbulb,
-  Link45deg,
-  Link as LinkIcon,
-  ListUl,
-  Lock,
-  Microsoft,
-  Newspaper,
-  Palette,
-  Paperclip,
-  Pencil,
-  PencilSquare,
-  People,
-  PlusLg,
-  Search,
-  ShieldLock,
-  Slash,
-  StarFill,
-  Stars,
-  TextParagraph,
-  ToggleOn,
-  Table as TableIcon,
-  Translate,
-  Trash,
-  Upload,
-  X,
-} from 'react-bootstrap-icons';
 
+/** Semantic name → Bootstrap Icons class suffix (`bi-<value>`). */
 export const ICONS = {
   // Navigation / resources
-  'content-model': Boxes,
-  content: FileEarmarkText,
-  media: Images,
-  guidelines: BookHalf,
-  locale: Globe2,
-  'api-key': Key,
-  environment: Diagram3,
-  webhook: Broadcast,
-  users: People,
-  security: ShieldLock,
-  billing: CreditCard,
-  audit: JournalText,
+  'content-model': 'boxes',
+  content: 'file-earmark-text',
+  media: 'images',
+  guidelines: 'book-half',
+  locale: 'globe2',
+  'api-key': 'key',
+  environment: 'diagram-3',
+  webhook: 'broadcast',
+  users: 'people',
+  security: 'shield-lock',
+  billing: 'credit-card',
+  audit: 'journal-text',
   // Actions
-  edit: PencilSquare,
-  'edit-inline': Pencil,
-  delete: Trash,
-  add: PlusLg,
-  close: X,
-  check: Check2,
-  publish: CheckCircle,
-  history: ClockHistory,
-  restore: ArrowClockwise,
-  reload: ArrowClockwise,
-  'open-external': BoxArrowUpRight,
-  upload: Upload,
-  search: Search,
-  drag: GripVertical,
-  'move-up': ArrowUp,
-  'move-down': ArrowDown,
-  back: ArrowLeft,
-  forward: ArrowRight,
-  'inspector-on': Eye,
-  'inspector-off': EyeSlash,
+  edit: 'pencil-square',
+  'edit-inline': 'pencil',
+  delete: 'trash',
+  add: 'plus-lg',
+  close: 'x',
+  check: 'check2',
+  publish: 'check-circle',
+  history: 'clock-history',
+  restore: 'arrow-clockwise',
+  reload: 'arrow-clockwise',
+  'open-external': 'box-arrow-up-right',
+  upload: 'upload',
+  search: 'search',
+  drag: 'grip-vertical',
+  'move-up': 'arrow-up',
+  'move-down': 'arrow-down',
+  back: 'arrow-left',
+  forward: 'arrow-right',
+  'inspector-on': 'eye',
+  'inspector-off': 'eye-slash',
   // AI
-  generate: Stars,
-  'suggest-titles': Lightbulb,
-  seo: Search,
-  translate: Translate,
-  compliance: CheckCircle,
+  generate: 'stars',
+  'suggest-titles': 'lightbulb',
+  seo: 'search',
+  translate: 'translate',
+  compliance: 'check-circle',
   // Field types (FIELD_TYPE_INFO)
-  'field-text': Fonts,
-  'field-longtext': TextParagraph,
-  'field-richtext': JustifyLeft,
-  'field-number': Hash,
-  'field-boolean': ToggleOn,
-  'field-datetime': Calendar3,
-  'field-select': ListUl,
-  'field-media': ImageIcon,
-  'field-media-many': Images,
-  'field-reference': Link45deg,
-  link: LinkIcon,
-  palette: Palette,
-  highlighter: Highlighter,
-  table: TableIcon,
-  'field-reference-many': LinkIcon,
-  'field-json': Braces,
-  'field-slug': Slash,
+  'field-text': 'fonts',
+  'field-longtext': 'text-paragraph',
+  'field-richtext': 'justify-left',
+  'field-number': 'hash',
+  'field-boolean': 'toggle-on',
+  'field-datetime': 'calendar3',
+  'field-select': 'list-ul',
+  'field-media': 'image',
+  'field-media-many': 'images',
+  'field-reference': 'link-45deg',
+  link: 'link',
+  palette: 'palette',
+  highlighter: 'highlighter',
+  table: 'table',
+  'field-reference-many': 'link',
+  'field-json': 'braces',
+  'field-slug': 'slash',
   // Media kinds
-  'media-image': ImageIcon,
-  'media-video': CameraVideo,
-  'media-pdf': FileEarmarkPdf,
-  'media-file': Paperclip,
+  'media-image': 'image',
+  'media-video': 'camera-video',
+  'media-pdf': 'file-earmark-pdf',
+  'media-file': 'paperclip',
   // Misc / status
-  star: StarFill,
-  warning: ExclamationTriangle,
-  lock: Lock,
-  email: Envelope,
-  github: Github,
-  microsoft: Microsoft,
+  menu: 'list',
+  'sign-out': 'box-arrow-right',
+  help: 'question-circle',
+  'chevron-down': 'chevron-down',
+  star: 'star-fill',
+  warning: 'exclamation-triangle',
+  lock: 'lock',
+  email: 'envelope',
+  github: 'github',
+  google: 'google',
+  microsoft: 'microsoft',
   // Content-type card cycle
-  'type-0': Boxes,
-  'type-1': FileEarmarkText,
-  'type-2': Bricks,
-  'type-3': CardHeading,
-  'type-4': Newspaper,
-  'type-5': Bullseye,
-  'type-6': Folder2Open,
+  'type-0': 'boxes',
+  'type-1': 'file-earmark-text',
+  'type-2': 'bricks',
+  'type-3': 'card-heading',
+  'type-4': 'newspaper',
+  'type-5': 'bullseye',
+  'type-6': 'folder2-open',
 } as const;
 
 export type IconName = keyof typeof ICONS;
@@ -171,13 +119,15 @@ export default function Icon({
   style?: CSSProperties;
   title?: string;
 }) {
-  const Component = ICONS[name];
   return (
-    <Component
-      size={size}
-      className={className}
-      style={{ flexShrink: 0, ...style }}
+    <i
+      className={`bi bi-${ICONS[name]}${className ? ` ${className}` : ''}`}
+      // Font glyphs size by font-size; the flex/line-height pair keeps them
+      // optically centred next to text at any size.
+      style={{ fontSize: size, lineHeight: 1, flexShrink: 0, ...style }}
       title={title}
+      role={title ? 'img' : undefined}
+      aria-label={title}
       aria-hidden={title ? undefined : true}
     />
   );

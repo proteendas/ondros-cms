@@ -16,6 +16,7 @@ import { useWorkspace } from '@/lib/workspace';
 import { FIELD_TYPE_INFO } from '@/lib/types';
 import type { ContentType, FieldDef, FieldType, RichTextConfig } from '@/lib/types';
 import { CONFIGURABLE_MARKS, CONFIGURABLE_NODES } from '@/components/richtext/config';
+import Select from '@/components/ui/Select';
 
 const PICKABLE_TYPES: FieldType[] = [
   'text', 'longtext', 'richtext', 'number', 'boolean', 'datetime',
@@ -129,16 +130,15 @@ export default function ContentTypeBuilderPage() {
               </div>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <label className="field-label" style={{ marginTop: 0 }}>Display field</label>
-                <select
-                  className="input"
+                <Select
+                  ariaLabel="Display field"
                   value={ct.display_field || ''}
-                  onChange={(e) => { setCt({ ...ct, display_field: e.target.value }); setDirty(true); }}
-                >
-                  <option value="">(first text field)</option>
-                  {fieldIds.map((fid) => (
-                    <option key={fid} value={fid}>{fid}</option>
-                  ))}
-                </select>
+                  onChange={(v) => { setCt({ ...ct, display_field: v }); setDirty(true); }}
+                  options={[
+                    { value: '', label: '(first text field)' },
+                    ...fieldIds.map((fid) => ({ value: fid, label: fid })),
+                  ]}
+                />
               </div>
             </div>
             <label className="field-label">Description</label>
@@ -189,9 +189,13 @@ export default function ContentTypeBuilderPage() {
                   {f.localized && <span className="chip">localized</span>}
                   {(f.type === 'reference' || f.type === 'reference_many') &&
                     (f.allowed_content_types?.length ? (
-                      <span className="chip">→ {f.allowed_content_types.join(', ')}</span>
+                      <span className="chip">
+                        <Icon name="forward" size={10} /> {f.allowed_content_types.join(', ')}
+                      </span>
                     ) : (
-                      <span className="chip">→ any type</span>
+                      <span className="chip">
+                        <Icon name="forward" size={10} /> any type
+                      </span>
                     ))}
                 </div>
                 <button className="btn ghost small" onClick={() => move(i, i - 1)} title="Move up"><Icon name="move-up" size={13} /></button>
@@ -224,7 +228,11 @@ export default function ContentTypeBuilderPage() {
                   {f.name || f.id}
                   {f.validations.required && <span className="error-text">*</span>}
                   <span className="field-type-tag">{f.type}</span>
-                  {f.localized && <span className="field-type-tag">en-US ▾</span>}
+                  {f.localized && (
+                    <span className="field-type-tag">
+                      en-US <Icon name="chevron-down" size={9} />
+                    </span>
+                  )}
                 </label>
                 <SampleWidget field={f} />
                 {f.help_text && <p className="help-text">{f.help_text}</p>}
@@ -278,9 +286,13 @@ function SampleWidget({ field }: { field: FieldDef }) {
       return <input className="input" disabled placeholder="2026-01-01 10:00" style={{ maxWidth: 200 }} />;
     case 'select':
       return (
-        <select className="input" disabled>
-          <option>{(field.validations.allowed_values ?? ['option'])[0]}</option>
-        </select>
+        <Select
+          disabled
+          ariaLabel="Select field preview"
+          value={(field.validations.allowed_values ?? ['option'])[0]}
+          onChange={() => {}}
+          options={(field.validations.allowed_values ?? ['option']).map((v) => ({ value: v, label: v }))}
+        />
       );
     case 'media':
     case 'media_many':

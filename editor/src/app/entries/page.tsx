@@ -11,6 +11,8 @@ import { api } from '@/lib/api';
 import { ConfirmDialog, Modal, formatDate, useToast } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
 import type { ContentType, Entry, EntryList, EntryStatus } from '@/lib/types';
+import Select from '@/components/ui/Select';
+import Icon from '@/components/ui/Icon';
 
 const PAGE_SIZE = 25;
 const STATUSES: EntryStatus[] = ['draft', 'in_review', 'published', 'archived'];
@@ -122,26 +124,24 @@ function EntriesPageInner() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0); }}
         />
-        <select
-          className="input"
+        <Select
+          ariaLabel="Content type"
           value={typeFilter}
-          onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }}
-        >
-          <option value="">All types</option>
-          {types.map((t) => (
-            <option key={t.id} value={t.api_id}>{t.name}</option>
-          ))}
-        </select>
-        <select
-          className="input"
+          onChange={(v) => { setTypeFilter(v); setPage(0); }}
+          options={[
+            { value: '', label: 'All types' },
+            ...types.map((t) => ({ value: t.api_id, label: t.name })),
+          ]}
+        />
+        <Select
+          ariaLabel="Status"
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-        >
-          <option value="">Any status</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>{s.replace('_', ' ')}</option>
-          ))}
-        </select>
+          onChange={(v) => { setStatusFilter(v); setPage(0); }}
+          options={[
+            { value: '', label: 'Any status' },
+            ...STATUSES.map((s) => ({ value: s, label: s.replace('_', ' ') })),
+          ]}
+        />
         {selected.size > 0 && (
           <>
             <span style={{ width: 1, height: 22, background: 'var(--border)' }} />
@@ -226,7 +226,7 @@ function EntriesPageInner() {
       {list && list.total > PAGE_SIZE && (
         <div className="pagination">
           <button className="btn secondary small" disabled={page === 0} onClick={() => setPage(page - 1)}>
-            ← Prev
+            <Icon name="back" size={12} /> Prev
           </button>
           <span className="muted">Page {page + 1} of {totalPages}</span>
           <button
@@ -234,7 +234,7 @@ function EntriesPageInner() {
             disabled={page + 1 >= totalPages}
             onClick={() => setPage(page + 1)}
           >
-            Next →
+            Next <Icon name="forward" size={12} />
           </button>
         </div>
       )}
@@ -300,11 +300,12 @@ function NewEntryModal({
     <Modal title="New entry" onClose={onClose}>
       <form onSubmit={submit}>
         <label className="field-label">Content type</label>
-        <select className="input" value={typeId} onChange={(e) => setTypeId(e.target.value)}>
-          {types.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="Content type"
+          value={typeId}
+          onChange={setTypeId}
+          options={types.map((t) => ({ value: t.id, label: t.name }))}
+        />
         <label className="field-label">Slug</label>
         <input
           className="input mono"

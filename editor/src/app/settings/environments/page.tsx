@@ -11,6 +11,8 @@ import { api } from '@/lib/api';
 import { ConfirmDialog, Modal, formatDate, useToast } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
 import type { Environment } from '@/lib/types';
+import Select from '@/components/ui/Select';
+import Icon from '@/components/ui/Icon';
 
 export default function EnvironmentsPage() {
   const toast = useToast();
@@ -90,7 +92,7 @@ export default function EnvironmentsPage() {
           {space.locales.map((l) => (
             <span key={l.code} className="chip" style={{ marginRight: 6 }}>
               {l.code}
-              {l.code === space.default_locale && ' ★'}
+              {l.code === space.default_locale && <Icon name="star" size={10} title="Default locale" />}
             </span>
           ))}
         </p>
@@ -208,17 +210,25 @@ function CreateEnvironmentModal({
         <label className="field-label">Display name</label>
         <input className="input" value={name} placeholder={key || 'Staging'} onChange={(e) => setName(e.target.value)} />
         <label className="field-label">Type</label>
-        <select className="input" value={type} onChange={(e) => setType(e.target.value as 'staging' | 'dev')}>
-          <option value="dev">dev</option>
-          <option value="staging">staging</option>
-        </select>
+        <Select
+          ariaLabel="Environment type"
+          value={type}
+          onChange={(v) => setType(v as 'staging' | 'dev')}
+          options={[
+            { value: 'dev', label: 'dev' },
+            { value: 'staging', label: 'staging' },
+          ]}
+        />
         <label className="field-label">Clone from</label>
-        <select className="input" value={cloneFrom} onChange={(e) => setCloneFrom(e.target.value)}>
-          <option value="">— start empty —</option>
-          {environments.map((env) => (
-            <option key={env.id} value={env.id}>{env.key}</option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="Clone from environment"
+          value={cloneFrom}
+          onChange={setCloneFrom}
+          options={[
+            { value: '', label: '— start empty —' },
+            ...environments.map((env) => ({ value: env.id, label: env.key })),
+          ]}
+        />
         {cloneFrom && (
           <>
             <label className="checkbox-row">
@@ -226,7 +236,7 @@ function CreateEnvironmentModal({
               Also clone entries (references are remapped to the new copies)
             </label>
             <p className="help-text">
-              ⚠ Cloning copies every content type{cloneEntries ? ' and entry' : ''} — for large
+              <Icon name="warning" size={13} /> Cloning copies every content type{cloneEntries ? ' and entry' : ''} — for large
               spaces this can take a while and duplicates data volume.
             </p>
           </>
@@ -297,8 +307,9 @@ function LocalesModal({
             style={{ color: 'var(--danger)' }}
             disabled={items.length === 1}
             onClick={() => setItems(items.filter((_, j) => j !== i))}
+            aria-label="Remove"
           >
-            ✕
+            <Icon name="close" size={12} />
           </button>
         </div>
       ))}

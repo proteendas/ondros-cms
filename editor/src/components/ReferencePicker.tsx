@@ -13,6 +13,7 @@ import Icon from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 import { Modal } from '@/components/ui';
 import type { ContentType, Entry, EntryList } from '@/lib/types';
+import Select from '@/components/ui/Select';
 
 interface Props {
   envPath: string;
@@ -209,18 +210,26 @@ export function ReferenceSearchModal({
           autoFocus
           onChange={(e) => setQ(e.target.value)}
         />
-        <select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-          <option value="">{allowedContentTypes.length ? 'All allowed types' : 'All types'}</option>
-          {pickableTypes.map((t) => (
-            <option key={t.id} value={t.api_id}>{t.name}</option>
-          ))}
-        </select>
-        <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">Any status</option>
-          <option value="published">published</option>
-          <option value="draft">draft</option>
-          <option value="in_review">in review</option>
-        </select>
+        <Select
+          ariaLabel="Content type"
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={[
+            { value: '', label: allowedContentTypes.length ? 'All allowed types' : 'All types' },
+            ...pickableTypes.map((t) => ({ value: t.api_id, label: t.name })),
+          ]}
+        />
+        <Select
+          ariaLabel="Status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: '', label: 'Any status' },
+            { value: 'published', label: 'published' },
+            { value: 'draft', label: 'draft' },
+            { value: 'in_review', label: 'in review' },
+          ]}
+        />
       </div>
 
       <div style={{ maxHeight: 380, overflowY: 'auto' }}>

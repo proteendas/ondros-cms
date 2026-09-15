@@ -25,6 +25,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import Icon from '@/components/ui/Icon';
+import Select from '@/components/ui/Select';
 import type { ContentType } from '@/lib/types';
 
 import { MediaPickerModal } from './MediaPicker';
@@ -287,9 +288,10 @@ function Toolbar({ editor, cfg, bridge }: { editor: Editor; cfg: ReturnType<type
       <span className="tt-sep" />
 
       {nodeAllowed(cfg, 'heading') && (
-        <select
-          className="tt-select"
+        <Select
+          variant="toolbar"
           title="Text style"
+          ariaLabel="Text style"
           value={
             editor.isActive('heading', { level: 1 }) ? 'h1'
               : editor.isActive('heading', { level: 2 }) ? 'h2'
@@ -299,15 +301,15 @@ function Toolbar({ editor, cfg, bridge }: { editor: Editor; cfg: ReturnType<type
               : editor.isActive('heading', { level: 6 }) ? 'h6'
               : 'p'
           }
-          onChange={(e) => {
-            const v = e.target.value;
+          onChange={(v) => {
             if (v === 'p') editor.chain().focus().setParagraph().run();
             else editor.chain().focus().toggleHeading({ level: Number(v[1]) as 1 | 2 | 3 | 4 | 5 | 6 }).run();
           }}
-        >
-          <option value="p">Paragraph</option>
-          {[1, 2, 3, 4, 5, 6].map((l) => <option key={l} value={`h${l}`}>Heading {l}</option>)}
-        </select>
+          options={[
+            { value: 'p', label: 'Paragraph' },
+            ...[1, 2, 3, 4, 5, 6].map((l) => ({ value: `h${l}`, label: `Heading ${l}` })),
+          ]}
+        />
       )}
 
       {nodeAllowed(cfg, 'bulletList') && btn(<Icon name="content" size={13} />, () => editor.chain().focus().toggleBulletList().run(), editor.isActive('bulletList'), 'Bullet list')}

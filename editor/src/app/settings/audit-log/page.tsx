@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { formatDate } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
 import type { AuditLogRow } from '@/lib/types';
+import Select from '@/components/ui/Select';
+import Icon from '@/components/ui/Icon';
 
 const PAGE_SIZE = 50;
 
@@ -55,12 +57,12 @@ export default function AuditLogPage() {
       <div className="toolbar">
         <input className="input" placeholder="Search actor / action / resource id…"
                value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
-        <select className="input" value={resourceType}
-                onChange={(e) => { setResourceType(e.target.value); setPage(0); }}>
-          {RESOURCE_TYPES.map((t) => (
-            <option key={t} value={t}>{t || 'All resources'}</option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="Resource type"
+          value={resourceType}
+          onChange={(v) => { setResourceType(v); setPage(0); }}
+          options={RESOURCE_TYPES.map((t) => ({ value: t, label: t || 'All resources' }))}
+        />
       </div>
 
       <div className="table-wrap">
@@ -118,9 +120,13 @@ export default function AuditLogPage() {
 
       {total > PAGE_SIZE && (
         <div className="pagination">
-          <button className="btn secondary small" disabled={page === 0} onClick={() => setPage(page - 1)}>← Prev</button>
+          <button className="btn secondary small" disabled={page === 0} onClick={() => setPage(page - 1)}>
+            <Icon name="back" size={12} /> Prev
+          </button>
           <span className="muted">Page {page + 1} of {totalPages}</span>
-          <button className="btn secondary small" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>Next →</button>
+          <button className="btn secondary small" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>
+            Next <Icon name="forward" size={12} />
+          </button>
         </div>
       )}
     </div>

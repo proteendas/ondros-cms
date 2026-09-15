@@ -20,6 +20,7 @@ import { localizedValue, withLocalizedValue } from '@/lib/types';
 import type { AiStatus, ComplianceResult, ContentType, FieldDef } from '@/lib/types';
 
 import { aiOutputToRichText, richTextToText } from './richtext/convert';
+import Select from '@/components/ui/Select';
 
 interface Props {
   contentType: ContentType;
@@ -346,18 +347,15 @@ export default function AISidebar({
           <span className="muted small" style={{ whiteSpace: 'nowrap' }}>
             <Icon name="translate" size={13} /> AI translate {locale} to
           </span>
-          <select
-            className="input"
+          <Select
             style={{ maxWidth: 130 }}
+            ariaLabel="Translate to locale"
             value={translateTarget}
-            onChange={(e) => setTranslateTarget(e.target.value)}
-          >
-            {locales
+            onChange={setTranslateTarget}
+            options={locales
               .filter((code) => code !== locale)
-              .map((code) => (
-                <option key={code} value={code}>{code}</option>
-              ))}
-          </select>
+              .map((code) => ({ value: code, label: code }))}
+          />
           <button
             className="btn secondary small"
             disabled={!!busy || aiOff || !translateTarget || translateTarget === locale}

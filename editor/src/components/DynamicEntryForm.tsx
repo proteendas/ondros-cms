@@ -15,6 +15,7 @@ import type { ContentType, FieldDef } from '@/lib/types';
 import MediaPicker from './MediaPicker';
 import ReferencePicker from './ReferencePicker';
 import RichTextField from './RichTextField';
+import Select from '@/components/ui/Select';
 
 interface Props {
   contentType: ContentType;
@@ -164,17 +165,16 @@ function FieldInput({
       );
     case 'select':
       return (
-        <select
-          className="input"
+        <Select
           style={{ maxWidth: 280 }}
+          ariaLabel={field.name}
           value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value || null)}
-        >
-          <option value="">—</option>
-          {(field.validations.allowed_values ?? []).map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </select>
+          onChange={(v) => onChange(v || null)}
+          options={[
+            { value: '', label: '—' },
+            ...(field.validations.allowed_values ?? []).map((v) => ({ value: v, label: v })),
+          ]}
+        />
       );
     case 'media':
     case 'media_many':

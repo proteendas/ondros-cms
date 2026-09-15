@@ -10,6 +10,7 @@ import Icon from '@/components/ui/Icon';
 import { API_URL, api, getToken } from '@/lib/api';
 import { Modal, formatBytes } from '@/components/ui';
 import type { MediaAsset, MediaList } from '@/lib/types';
+import Select from '@/components/ui/Select';
 
 interface Props {
   spacePath: string; // /spaces/{id}
@@ -155,12 +156,17 @@ export function MediaPickerModal({
     <Modal title="Media library" onClose={onClose} wide>
       <div className="toolbar" style={{ marginBottom: 10 }}>
         <input className="input" placeholder="Search media…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="">All kinds</option>
-          <option value="image">Images</option>
-          <option value="video">Videos</option>
-          <option value="file">Files</option>
-        </select>
+        <Select
+          ariaLabel="Media kind"
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: '', label: 'All kinds' },
+            { value: 'image', label: 'Images' },
+            { value: 'video', label: 'Videos' },
+            { value: 'file', label: 'Files' },
+          ]}
+        />
         <span className="spacer" />
         <label className="btn secondary small" style={{ cursor: 'pointer' }}>
           {uploading ? 'Uploading…' : <><Icon name="upload" size={13} /> Upload</>}
