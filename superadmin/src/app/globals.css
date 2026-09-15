@@ -27,6 +27,9 @@
 
 * { box-sizing: border-box; }
 
+/* Form controls don't inherit font-family from body. */
+button, input, select, textarea { font-family: inherit; }
+
 body {
   margin: 0;
   font-family: var(--font);

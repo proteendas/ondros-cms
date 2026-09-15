@@ -21,6 +21,8 @@ import Select from '@/components/ui/Select';
 const PICKABLE_TYPES: FieldType[] = [
   'text', 'longtext', 'richtext', 'number', 'boolean', 'datetime',
   'select', 'media', 'media_many', 'reference', 'reference_many', 'json', 'slug',
+  // Repeatable container of sub-fields (AEM-style multifield).
+  'group',
 ];
 
 function slugify(name: string): string {

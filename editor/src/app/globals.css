@@ -38,6 +38,11 @@
 
 * { box-sizing: border-box; }
 
+/* Form controls do NOT inherit font-family from body — without this they fall
+   back to the browser default (Arial/Helvetica) and quietly break the brand
+   typography anywhere a rule doesn't set it explicitly. */
+button, input, select, textarea { font-family: inherit; }
+
 html, body { height: 100%; }
 
 body {

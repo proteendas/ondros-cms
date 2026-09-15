@@ -1,3 +1,6 @@
+/* Form controls don't inherit font-family from body. */
+button, input, select, textarea { font-family: inherit; }
+
 /* Minimal site styling — this app stands in for "your real website". */
 * {
   box-sizing: border-box;
