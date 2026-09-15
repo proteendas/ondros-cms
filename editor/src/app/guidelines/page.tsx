@@ -83,52 +83,54 @@ export default function GuidelinesPage() {
         </div>
       </form>
 
-      <table className="list">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Status</th>
-            <th>Chunks</th>
-            <th>Scope</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {docs.map((d) => (
-            <tr key={d.id}>
-              <td>{d.title}</td>
-              <td>
-                <span className={`badge ${d.status === 'ingested' ? 'published' : 'draft'}`}>
-                  {d.status}
-                </span>
-              </td>
-              <td>{d.chunk_count}</td>
-              <td className="muted">{d.content_types.length ? d.content_types.join(', ') : 'all types'}</td>
-              <td>
-                <button
-                  className="btn secondary small"
-                  onClick={() => api(`/guidelines/${d.id}/ingest`, { method: 'POST' }).then(reload)}
-                >
-                  Re-ingest
-                </button>{' '}
-                <button
-                  className="btn danger small"
-                  onClick={() => api(`/guidelines/${d.id}`, { method: 'DELETE' }).then(reload)}
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-          {docs.length === 0 && (
+      <div className="table-wrap">
+        <table className="list">
+          <thead>
             <tr>
-              <td colSpan={5} className="muted">
-                No guidelines yet.
-              </td>
+              <th>Title</th>
+              <th>Status</th>
+              <th>Chunks</th>
+              <th>Scope</th>
+              <th />
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {docs.map((d) => (
+              <tr key={d.id}>
+                <td>{d.title}</td>
+                <td>
+                  <span className={`badge ${d.status === 'ingested' ? 'published' : 'draft'}`}>
+                    {d.status}
+                  </span>
+                </td>
+                <td>{d.chunk_count}</td>
+                <td className="muted">{d.content_types.length ? d.content_types.join(', ') : 'all types'}</td>
+                <td>
+                  <button
+                    className="btn secondary small"
+                    onClick={() => api(`/guidelines/${d.id}/ingest`, { method: 'POST' }).then(reload)}
+                  >
+                    Re-ingest
+                  </button>{' '}
+                  <button
+                    className="btn danger small"
+                    onClick={() => api(`/guidelines/${d.id}`, { method: 'DELETE' }).then(reload)}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {docs.length === 0 && (
+              <tr>
+                <td colSpan={5} className="muted">
+                  No guidelines yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
