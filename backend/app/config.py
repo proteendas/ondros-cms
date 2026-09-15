@@ -45,7 +45,23 @@ class Settings(BaseSettings):
     # ({backend_url}/sso/{provider}/callback); set per environment (spec 012).
     backend_url: str = "http://localhost:8000"
 
-    # SMTP (leave host empty to log emails instead of sending).
+    # --- Outbound email ----------------------------------------------------
+    # MAIL_PROVIDER picks the transport. Leave it empty to auto-detect, in this
+    # order: resend -> brevo -> smtp -> log.
+    #   resend  HTTP API (api.resend.com) — free tier, no SMTP ports needed
+    #   brevo   HTTP API (api.brevo.com)  — free tier
+    #   smtp    any SMTP relay (Mailgun, SendGrid, Gmail, self-hosted)
+    #   log     write the message to the log instead of sending (local dev)
+    # HTTP providers are preferred on PaaS hosts, several of which block or
+    # throttle outbound SMTP ports.
+    mail_provider: str = ""
+    resend_api_key: str = ""
+    brevo_api_key: str = ""
+    # Sender for every transport, e.g. "Ondros CMS <no-reply@yourdomain.com>".
+    # The address's domain must be verified with the provider.
+    mail_from: str = ""
+
+    # SMTP (used when the provider resolves to "smtp").
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
@@ -96,6 +112,25 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def resolved_mail_provider(self) -> str:
+        """Which transport send_email() will use, honouring explicit config."""
+        explicit = (self.mail_provider or "").strip().lower()
+        if explicit:
+            return explicit
+        if self.resend_api_key:
+            return "resend"
+        if self.brevo_api_key:
+            return "brevo"
+        if self.smtp_host:
+            return "smtp"
+        return "log"
+
+    @property
+    def mail_sender(self) -> str:
+        """Unified From header — MAIL_FROM wins, SMTP_FROM kept for back-compat."""
+        return self.mail_from or self.smtp_from
 
     @property
     def resolved_ai_provider(self) -> str:

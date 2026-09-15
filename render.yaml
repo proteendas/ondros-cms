@@ -44,3 +44,14 @@ services:
         value: ""
       - key: AI_API_KEY
         sync: false
+      # --- Outbound email (verification / reset / invitations) --------------
+      # Empty MAIL_PROVIDER auto-detects: resend -> brevo -> smtp -> log.
+      # With none configured, emails are only written to the service log.
+      - key: MAIL_PROVIDER
+        value: ""
+      - key: RESEND_API_KEY
+        sync: false # https://resend.com/api-keys
+      - key: BREVO_API_KEY
+        sync: false # alternative free provider
+      - key: MAIL_FROM
+        sync: false # e.g. "Ondros CMS <onboarding@resend.dev>" — domain must be verified

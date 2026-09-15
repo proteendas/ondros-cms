@@ -22,6 +22,8 @@ export const ICONS = {
   usage: 'bar-chart-line',
   health: 'activity',
   'sign-out': 'box-arrow-right',
+  menu: 'list',
+  close: 'x',
   show: 'eye',
   hide: 'eye-slash',
 } as const;

@@ -85,7 +85,7 @@ Environment variables (see `.env.example` for the full annotated list):
 | `CORS_ORIGINS` | `https://<editor>.vercel.app,https://<preview>.vercel.app,https://<superadmin>.vercel.app` (the separate marketing repo makes no backend calls, so it's not included) |
 | `AUTH_DEV_MODE` | `false` (**important** — dev mode leaks action tokens in responses) |
 | `BILLING_DEV_MODE` | `true` (unless you wire real Stripe keys) |
-| `SMTP_HOST/PORT/USER/PASSWORD/SMTP_FROM` | optional; without SMTP, verification emails are only logged — for demos consider a free [Resend](https://resend.com)/[Brevo](https://brevo.com) SMTP account |
+| `RESEND_API_KEY` + `MAIL_FROM` | recommended. Free [Resend](https://resend.com) tier, HTTP API — no SMTP ports needed. `BREVO_API_KEY` or `SMTP_*` also work. Without any provider, verification emails are only written to the log |
 | `AI_PROVIDER` / `AI_API_KEY` | optional — `groq` (console.groq.com) or `gemini` (aistudio.google.com) free keys; set `EMBEDDING_DIM=768` for Gemini **before first ingest** |
 | `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` | from step 5 (optional) |
 

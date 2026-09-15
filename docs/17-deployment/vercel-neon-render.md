@@ -237,9 +237,27 @@ Pick one:
 
 - **Demo / coursework**: fine as-is. Grab verification links from Render's log
   stream, or seed the demo accounts (step 7) and log in with those.
-- **Anything with real users**: add free SMTP — [Resend](https://resend.com) or
-  [Brevo](https://brevo.com) — and set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
-  `SMTP_PASSWORD`, `SMTP_FROM`.
+- **Anything with real users**: configure a provider. The quickest is
+  [Resend](https://resend.com) — free tier, HTTP API, nothing to install:
+
+  ```
+  RESEND_API_KEY=re_xxxxxxxx
+  MAIL_FROM=Ondros CMS <onboarding@resend.dev>
+  ```
+
+  That's it — `MAIL_PROVIDER` auto-detects. Swap `MAIL_FROM` for an address on
+  your own domain once you've verified it with Resend; sending from an
+  unverified domain returns `403`.
+
+  [Brevo](https://brevo.com) works the same way via `BREVO_API_KEY`, and any
+  SMTP relay via `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`.
+
+> Prefer an **HTTP provider over SMTP on Render.** PaaS hosts commonly block or
+> throttle outbound SMTP ports, and the failure looks like the app being broken
+> rather than the network refusing the connection.
+
+After deploying, check the Render log on boot — it states which transport is
+active, or warns that mail will only be logged.
 
 ## 4. Deploy the frontends (Vercel)
 

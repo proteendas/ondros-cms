@@ -73,6 +73,14 @@ async def lifespan(app: FastAPI):
     Path(settings.media_root).mkdir(parents=True, exist_ok=True)
     ai_provider = settings.resolved_ai_provider
     logger.info("AI provider: %s", ai_provider if ai_provider != "none" else "none (AI disabled)")
+    mail_provider = settings.resolved_mail_provider
+    if mail_provider == "log":
+        logger.warning(
+            "Mail provider: none — verification and reset emails will only be "
+            "written to this log. Set RESEND_API_KEY (or BREVO_API_KEY / SMTP_HOST)."
+        )
+    else:
+        logger.info("Mail provider: %s (from: %s)", mail_provider, settings.mail_sender)
     yield
 
 

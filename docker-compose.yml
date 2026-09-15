@@ -51,6 +51,11 @@ services:
       # AUTH_DEV_MODE=true returns verification/reset tokens in API responses
       # and logs emails instead of sending — never enable outside local dev.
       AUTH_DEV_MODE: ${AUTH_DEV_MODE:-true}
+      # Transport: resend | brevo | smtp | log. Empty = auto-detect in that order.
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      MAIL_FROM: "${MAIL_FROM:-}"
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}

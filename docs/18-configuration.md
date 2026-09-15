@@ -60,17 +60,47 @@ anything reachable from the internet.
 
 ### Email
 
-| Variable | Default |
-|---|---|
-| `SMTP_HOST` | `""` |
-| `SMTP_PORT` | `587` |
-| `SMTP_USER` / `SMTP_PASSWORD` | `""` |
-| `SMTP_FROM` | `Ondros CMS <prot.das15@gmail.com>` |
+Verification, password reset and invitations. Four transports:
 
-**With no `SMTP_HOST`, mail is logged rather than sent.** Combined with
+| `MAIL_PROVIDER` | Transport | Notes |
+|---|---|---|
+| `resend` | HTTPS → `api.resend.com` | **Recommended.** Free tier, no SMTP ports |
+| `brevo` | HTTPS → `api.brevo.com` | Free tier alternative |
+| `smtp` | SMTP relay | Mailgun, SendGrid, Gmail, self-hosted |
+| `log` | Writes to the server log | Local development |
+
+Leave `MAIL_PROVIDER` empty to **auto-detect** in that order — set
+`RESEND_API_KEY` and it just works.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `MAIL_PROVIDER` | `""` | Empty = auto-detect |
+| `MAIL_FROM` | falls back to `SMTP_FROM` | e.g. `Ondros CMS <no-reply@you.com>` |
+| `RESEND_API_KEY` | `""` | [resend.com/api-keys](https://resend.com/api-keys) |
+| `BREVO_API_KEY` | `""` | |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | `""` / `587` | Used when the provider resolves to `smtp` |
+
+**The sender domain must be verified with your provider**, or sending fails with
+a `403`. Resend's `onboarding@resend.dev` works immediately for testing.
+
+**HTTP providers are preferred on PaaS hosts.** Several block or throttle
+outbound SMTP, which fails in a way that looks like the application being
+broken rather than the network refusing the connection.
+
+**With no provider configured, mail is logged rather than sent.** Combined with
 `AUTH_DEV_MODE=false`, verification links exist only in the server log — signup
-appears to work while users never receive anything. Configure SMTP, or keep dev
-mode for a demo. Free options: Resend, Brevo.
+appears to work while users never receive anything. The backend logs a warning
+at startup when this is the case, and logs the resolved provider otherwise:
+
+```
+WARNING  Mail provider: none — verification and reset emails will only be
+         written to this log. Set RESEND_API_KEY (or BREVO_API_KEY / SMTP_HOST).
+INFO     Mail provider: resend (from: Ondros CMS <no-reply@you.com>)
+```
+
+Delivery failures never raise into the request path — an auth flow must not
+fail because a mail relay hiccuped. They're logged with the provider's own
+error text.
 
 ### OAuth & SSO
 
@@ -186,12 +216,30 @@ rather than configuration.
 - [ ] `AUTH_DEV_MODE=false`
 - [ ] `BILLING_DEV_MODE=false` (or Stripe keys configured)
 - [ ] `CORS_ORIGINS` restricted to your real origins, no trailing slashes
-- [ ] SMTP configured, or you accept that mail only reaches the log
+- [ ] A mail provider configured (`RESEND_API_KEY` is the quickest), or you accept that mail only reaches the log
 - [ ] Seeded demo accounts and tokens removed or rotated
 - [ ] Media on object storage if the filesystem is ephemeral
 - [ ] Alembic run instead of relying on boot-time `create_all`
 - [ ] One backend replica only, until the WebSocket manager is Redis-backed
 - [ ] TLS everywhere
+
+## Per-service `.env.example`
+
+Each deployable ships its own annotated example, so Render and Vercel can pick
+up the variables that service actually needs:
+
+| File | Service | Host |
+|---|---|---|
+| [`backend/.env.example`](../backend/.env.example) | FastAPI API | Render |
+| [`editor/.env.example`](../editor/.env.example) | Editor | Vercel |
+| [`preview/.env.example`](../preview/.env.example) | Preview site | Vercel |
+| [`superadmin/.env.example`](../superadmin/.env.example) | Operator portal | Vercel |
+| [`.env.example`](../.env.example) | All five services via docker compose, plus the bundled Postgres | Local / single VM |
+
+The database has no code deployable of its own: with compose it's configured by
+the `POSTGRES_*` variables in the root file, and on a managed host (Neon,
+Supabase) the provider hands you a connection string that goes into the
+backend's `DATABASE_URL`.
 
 ## Where to go next
 
