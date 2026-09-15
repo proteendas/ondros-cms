@@ -12,6 +12,7 @@ import { useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { LOCALE_CATALOG } from '@/lib/localeCatalog';
 import type { ContentType, Space } from '@/lib/types';
+import Icon from '@/components/ui/Icon';
 
 function slugify(name: string, sep: '-' | '_' = '-'): string {
   const out = name.toLowerCase().replace(/[^a-z0-9]+/g, sep);
@@ -138,7 +139,7 @@ export default function OnboardingPage() {
             <button className="btn" disabled={!spaceName.trim()}
                     style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}
                     onClick={() => setStep(2)}>
-              Continue →
+              Continue <Icon name="forward" size={13} />
             </button>
           </>
         )}
@@ -170,10 +171,12 @@ export default function OnboardingPage() {
             </p>
             {error && <p className="error-text">{error}</p>}
             <div className="row" style={{ marginTop: 12 }}>
-              <button className="btn secondary" onClick={() => setStep(1)}>← Back</button>
+              <button className="btn secondary" onClick={() => setStep(1)}>
+                <Icon name="back" size={13} /> Back
+              </button>
               <span className="spacer" />
               <button className="btn" disabled={busy || !selected.length} onClick={createSpace}>
-                {busy ? 'Creating…' : 'Create space →'}
+                {busy ? 'Creating…' : <>Create space <Icon name="forward" size={13} /></>}
               </button>
             </div>
           </>

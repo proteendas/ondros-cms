@@ -43,7 +43,9 @@ export default function HomePage() {
         <p className="muted">Create your first space to start modeling content.</p>
         {can('manage_spaces') && (
           <div style={{ marginTop: 14 }}>
-            <Link href="/onboarding" className="btn">Start setup →</Link>
+            <Link href="/onboarding" className="btn">
+              Start setup <Icon name="forward" size={13} />
+            </Link>
           </div>
         )}
       </div>

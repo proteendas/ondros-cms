@@ -7,6 +7,8 @@ import { FormEvent, useState } from 'react';
 import Icon from '@/components/ui/Icon';
 import { api } from '@/lib/api';
 import { BRAND } from '@/lib/brand';
+import LegalFooter from '@/components/ui/LegalFooter';
+import PasswordInput from '@/components/ui/PasswordInput';
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -63,7 +65,7 @@ export default function SignupPage() {
             <p className="muted small">
               Dev mode:{' '}
               <Link href={`/verify-email?token=${done.dev_verification_token}`}>
-                verify now →
+                verify now <Icon name="forward" size={12} />
               </Link>
             </p>
           )}
@@ -100,17 +102,18 @@ export default function SignupPage() {
         <label className="field-label">Work email</label>
         <input className="input" type="email" value={email} required onChange={(e) => setEmail(e.target.value)} />
         <label className="field-label">Password (min 8 characters)</label>
-        <input className="input" type="password" value={password} required minLength={8}
-               onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput value={password} required minLength={8}
+                       autoComplete="new-password" onChange={setPassword} />
 
         {error && <p className="error-text" style={{ marginTop: 10 }}>{error}</p>}
         <button className="btn" disabled={busy} style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}>
           {busy ? 'Creating…' : 'Create account'}
         </button>
-        <p className="muted small" style={{ marginTop: 12, marginBottom: 0 }}>
+        <p className="muted small" style={{ marginTop: 12, marginBottom: 0, textAlign: 'center' }}>
           Already have an account? <Link href="/login">Sign in</Link>
         </p>
       </form>
+      <LegalFooter />
     </div>
   );
 }

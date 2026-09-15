@@ -13,6 +13,7 @@
  * Server component — no client JS. The interactive layer (hover/click/edit)
  * is added in draft mode by InlineEditingBridge via event delegation.
  */
+import Icon from '@/components/Icon';
 import type { DeliveredAsset, DeliveredEntry, FieldDef, Includes } from '@/lib/cms';
 import { buildIncludeMaps } from '@/lib/cms';
 
@@ -111,7 +112,11 @@ function Field({
 
     case 'reference': {
       const linked = maps.entries.get(String(value));
-      if (!linked || depth >= MAX_NESTING) return <p {...attrs}>→ {String(value)}</p>;
+      if (!linked || depth >= MAX_NESTING) return (
+          <p {...attrs}>
+            <Icon name="forward" /> {String(value)}
+          </p>
+        );
       return (
         <section
           {...attrs}

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import Icon from '@/components/Icon';
 import { listEntries } from '@/lib/cms';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,11 @@ export default async function HomePage() {
   return (
     <main className="entry listing">
       <h1>Published content</h1>
-      {error && <p>⚠ {error}</p>}
+      {error && (
+        <p>
+          <Icon name="warning" title="Error" /> {error}
+        </p>
+      )}
 
       {pages.length > 0 && (
         <>
