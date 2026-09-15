@@ -47,6 +47,19 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
       CORS_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:3003
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # --- Accounts & email (spec 001) ---------------------------------------
+      # AUTH_DEV_MODE=true returns verification/reset tokens in API responses
+      # and logs emails instead of sending — never enable outside local dev.
+      AUTH_DEV_MODE: ${AUTH_DEV_MODE:-true}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: "${SMTP_FROM:-Ondros CMS <prot.das15@gmail.com>}"
+      # --- Billing (spec 005) -------------------------------------------------
+      BILLING_DEV_MODE: ${BILLING_DEV_MODE:-true}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       # --- Social OAuth (specs 002 + 012) ------------------------------------
       BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
@@ -56,6 +69,7 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT: ${MICROSOFT_TENANT:-common}
       # --- AI provider (see .env.example; groq/gemini/ollama are free) ------
       AI_PROVIDER: ${AI_PROVIDER:-}
       AI_API_KEY: ${AI_API_KEY:-}
@@ -89,6 +103,14 @@ services:
       # Dev-only: the editor embeds the preview URL with this preview API key.
       # In production, mint short-lived preview keys on the backend instead.
       NEXT_PUBLIC_PREVIEW_TOKEN: ${SEED_PREVIEW_TOKEN:-cms_pre_dev-preview-token-0000}
+      # --- Contact details shown on the legal/support pages -----------------
+      # Inlined at BUILD time: change these and rebuild the editor image.
+      NEXT_PUBLIC_SUPPORT_EMAIL: ${SUPPORT_EMAIL:-prot.das15@gmail.com}
+      NEXT_PUBLIC_PRIVACY_EMAIL: ${PRIVACY_EMAIL:-prot.das15@gmail.com}
+      NEXT_PUBLIC_SECURITY_EMAIL: ${SECURITY_EMAIL:-prot.das15@gmail.com}
+      NEXT_PUBLIC_LEGAL_COMPANY: ${LEGAL_COMPANY:-}
+      NEXT_PUBLIC_LEGAL_ADDRESS: ${LEGAL_ADDRESS:-}
+      NEXT_PUBLIC_LEGAL_JURISDICTION: ${LEGAL_JURISDICTION:-}
     ports:
       - "3000:3000"
     volumes:
