@@ -40,11 +40,12 @@ lives in its own repo, [ondros-cms-site](https://github.com/proteendas/ondros-cm
 deployed separately on Vercel. Its Login / Get Started CTAs point at this
 app's editor via `NEXT_PUBLIC_APP_LOGIN_URL` / `NEXT_PUBLIC_APP_SIGNUP_URL`.
 
-Deploying somewhere other than your laptop? [DEPLOYMENT.md](DEPLOYMENT.md)
-covers a full free-tier hosting path (Vercel + Render/Railway +
-Neon/Supabase) for educational use, and
-[DEPLOYMENT-VERCEL-NEON-RENDER.md](DEPLOYMENT-VERCEL-NEON-RENDER.md) walks the
-Vercel + Neon + Render combination end to end.
+**Full documentation lives in [docs/](docs/README.md)** — architecture, the
+complete API reference, data model, content modeling, deployment and more.
+
+Deploying somewhere other than your laptop? [docs/17-deployment/](docs/17-deployment/)
+covers a free-tier hosting path (Vercel + Render/Railway + Neon/Supabase), with
+a dedicated runbook for the Vercel + Neon + Render combination.
 
 The seed creates a **Marketing Site** space (locales `en-US` + `fr`) with a
 `master` environment, an assembly-style model (`landing_page` → `hero` +
