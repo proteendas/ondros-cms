@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from: str = "Ondros CMS <no-reply@localhost>"
+    smtp_from: str = "Ondros CMS <prot.das15@gmail.com>"
 
     # Global social login (OIDC direct against Google / Microsoft).
     google_client_id: str = ""

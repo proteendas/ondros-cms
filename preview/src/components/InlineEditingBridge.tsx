@@ -91,11 +91,9 @@ export default function InlineEditingBridge({
     };
 
     // Floating tag that shows the hovered field's id (inspector affordance).
-    // Icon: Bootstrap Icons "pencil-fill", inlined as SVG so the preview
-    // bundle needs no icon dependency (spec 008).
-    const PENCIL_SVG =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:-1px;margin-right:4px">' +
-      '<path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z"/></svg>';
+    // Icon: Bootstrap Icons webfont — this document loads the stylesheet in
+    // app/layout.tsx, so the `bi` classes resolve here (spec 008, CLAUDE.md).
+    const PENCIL_ICON = '<i class="bi bi-pencil-fill" aria-hidden="true" style="font-size:11px;margin-right:4px"></i>';
     const tag = document.createElement('div');
     tag.className = 'cms-field-tag';
     tag.style.display = 'none';
@@ -107,7 +105,7 @@ export default function InlineEditingBridge({
       if (!el) return;
       el.classList.add('cms-hover');
       const rect = el.getBoundingClientRect();
-      tag.innerHTML = PENCIL_SVG;
+      tag.innerHTML = PENCIL_ICON;
       tag.appendChild(document.createTextNode(el.dataset.cmsFieldId ?? ''));
       tag.style.display = 'block';
       tag.style.top = `${Math.max(2, rect.top + window.scrollY - 22)}px`;

@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 
 import { api } from '@/lib/api';
+import Icon from '@/components/ui/Icon';
+import LegalFooter from '@/components/ui/LegalFooter';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -39,7 +41,10 @@ export default function ForgotPasswordPage() {
             <p className="muted">If that address exists, a reset link is on its way.</p>
             {devToken && (
               <p className="muted small">
-                Dev mode: <Link href={`/reset-password?token=${devToken}`}>reset now →</Link>
+                Dev mode:{' '}
+                <Link href={`/reset-password?token=${devToken}`}>
+                  reset now <Icon name="forward" size={12} />
+                </Link>
               </p>
             )}
           </>
@@ -55,9 +60,12 @@ export default function ForgotPasswordPage() {
           </>
         )}
         <p className="muted small" style={{ marginTop: 12, marginBottom: 0 }}>
-          <Link href="/login">← Back to sign in</Link>
+          <Link href="/login">
+            <Icon name="back" size={12} /> Back to sign in
+          </Link>
         </p>
       </form>
+      <LegalFooter />
     </div>
   );
 }

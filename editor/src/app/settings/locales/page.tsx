@@ -12,6 +12,7 @@ import { ConfirmDialog, Modal, useToast } from '@/components/ui';
 import { LOCALE_CATALOG } from '@/lib/localeCatalog';
 import { useWorkspace } from '@/lib/workspace';
 import type { LocaleRow } from '@/lib/types';
+import Select from '@/components/ui/Select';
 
 export default function LocalesPage() {
   const toast = useToast();
@@ -42,8 +43,8 @@ export default function LocalesPage() {
         <div>
           <h1>Locales</h1>
           <p className="subtitle">
-            Languages for localized fields. Fallback chains apply on delivery
-            (locale → fallback → default).
+            Languages for localized fields. Fallback chains apply on delivery:
+            locale, then its fallback, then the default.
           </p>
         </div>
         <span className="spacer" />
@@ -73,19 +74,19 @@ export default function LocalesPage() {
                 <td>{row.name}</td>
                 <td>
                   {manage ? (
-                    <select
-                      className="input" style={{ maxWidth: 160 }}
+                    <Select
+                      style={{ maxWidth: 160 }}
+                      ariaLabel="Fallback locale"
                       value={row.fallback_code ?? ''}
                       disabled={row.is_default}
-                      onChange={(e) => void mutate(row, { fallback_code: e.target.value })}
-                    >
-                      <option value="">— default locale —</option>
-                      {(rows ?? [])
-                        .filter((l) => l.id !== row.id)
-                        .map((l) => (
-                          <option key={l.id} value={l.code}>{l.code}</option>
-                        ))}
-                    </select>
+                      onChange={(v) => void mutate(row, { fallback_code: v })}
+                      options={[
+                        { value: '', label: '— default locale —' },
+                        ...(rows ?? [])
+                          .filter((l) => l.id !== row.id)
+                          .map((l) => ({ value: l.code, label: l.code })),
+                      ]}
+                    />
                   ) : (
                     <code>{row.fallback_code ?? '—'}</code>
                   )}
@@ -222,12 +223,15 @@ function AddLocaleModal({
         {available.length === 0 && <p className="muted small">No matches.</p>}
       </div>
       <label className="field-label">Fallback locale (when a translation is missing)</label>
-      <select className="input" value={fallback} onChange={(e) => setFallback(e.target.value)}>
-        <option value="">— default locale —</option>
-        {fallbackOptions.map((code) => (
-          <option key={code} value={code}>{code}</option>
-        ))}
-      </select>
+      <Select
+        ariaLabel="Fallback locale"
+        value={fallback}
+        onChange={setFallback}
+        options={[
+          { value: '', label: '— default locale —' },
+          ...fallbackOptions.map((code) => ({ value: code, label: code })),
+        ]}
+      />
       {error && <p className="error-text">{error}</p>}
       <div className="modal-footer">
         <button className="btn secondary" onClick={onClose}>Cancel</button>

@@ -152,6 +152,8 @@ export interface CurrentUser {
   id: string;
   email: string;
   full_name: string;
+  email_verified: boolean;
+  created_at: string | null;
   tenant_id: string; // active account id
   roles: { role_name: string; space_id: string | null }[];
   capabilities: string[];

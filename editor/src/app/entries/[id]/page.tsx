@@ -293,7 +293,7 @@ export default function EntryEditorPage() {
                     title={l.name}
                   >
                     {l.code}
-                    {l.code === defaultLocale && ' ★'}
+                    {l.code === defaultLocale && <Icon name="star" size={10} title="Default locale" />}
                   </button>
                 ))}
               </div>

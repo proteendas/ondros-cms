@@ -12,6 +12,7 @@ import { ConfirmDialog, Modal, formatBytes, formatDate, useToast } from '@/compo
 import { assetThumb } from '@/components/MediaPicker';
 import { useWorkspace } from '@/lib/workspace';
 import type { MediaAsset, MediaList } from '@/lib/types';
+import Select from '@/components/ui/Select';
 
 const PAGE_SIZE = 40;
 
@@ -126,12 +127,17 @@ export default function MediaLibraryPage() {
 
       <div className="toolbar">
         <input className="input" placeholder="Search media…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
-        <select className="input" value={kind} onChange={(e) => { setKind(e.target.value); setPage(0); }}>
-          <option value="">All kinds</option>
-          <option value="image">Images</option>
-          <option value="video">Videos</option>
-          <option value="file">Files</option>
-        </select>
+        <Select
+          ariaLabel="Media kind"
+          value={kind}
+          onChange={(v) => { setKind(v); setPage(0); }}
+          options={[
+            { value: '', label: 'All kinds' },
+            { value: 'image', label: 'Images' },
+            { value: 'video', label: 'Videos' },
+            { value: 'file', label: 'Files' },
+          ]}
+        />
         <input className="input" placeholder="Filter by tag…" value={tag} onChange={(e) => { setTag(e.target.value); setPage(0); }} style={{ minWidth: 140 }} />
         {selected.size > 0 && can('manage_media') && (
           <>
@@ -177,9 +183,13 @@ export default function MediaLibraryPage() {
 
       {list && list.total > PAGE_SIZE && (
         <div className="pagination">
-          <button className="btn secondary small" disabled={page === 0} onClick={() => setPage(page - 1)}>← Prev</button>
+          <button className="btn secondary small" disabled={page === 0} onClick={() => setPage(page - 1)}>
+            <Icon name="back" size={12} /> Prev
+          </button>
           <span className="muted">Page {page + 1} of {totalPages}</span>
-          <button className="btn secondary small" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>Next →</button>
+          <button className="btn secondary small" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>
+            Next <Icon name="forward" size={12} />
+          </button>
         </div>
       )}
 

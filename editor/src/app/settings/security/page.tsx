@@ -10,6 +10,9 @@ import { API_URL, api } from '@/lib/api';
 import { ConfirmDialog, Modal, useToast } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
 import type { Role, SSOConfigInfo } from '@/lib/types';
+import Select from '@/components/ui/Select';
+import Icon from '@/components/ui/Icon';
+import PasswordInput from '@/components/ui/PasswordInput';
 
 export default function SecurityPage() {
   const toast = useToast();
@@ -213,7 +216,7 @@ function SsoModal({
             </div>
             {providerType === 'saml' && (
               <p className="help-text">
-                ⚠ SAML configs are stored, but the runtime needs <code>python3-saml</code> installed
+                <Icon name="warning" size={13} /> SAML configs are stored, but the runtime needs <code>python3-saml</code> installed
                 (see specs/002-sso.md). Prefer OIDC if your IdP supports it.
               </p>
             )}
@@ -231,8 +234,8 @@ function SsoModal({
                 <label className="field-label">
                   Client secret {config?.has_client_secret && <span className="muted small">(blank = keep current)</span>}
                 </label>
-                <input className="input mono" type="password" value={clientSecret}
-                       onChange={(e) => setClientSecret(e.target.value)} />
+                <PasswordInput className="input mono" value={clientSecret}
+                               autoComplete="off" onChange={setClientSecret} />
               </>
             ) : (
               <>
@@ -248,11 +251,12 @@ function SsoModal({
             <input className="input" value={emailDomain} placeholder="example.com (empty = any)"
                    onChange={(e) => setEmailDomain(e.target.value)} />
             <label className="field-label">Default role for new (JIT) users</label>
-            <select className="input" value={defaultRole} onChange={(e) => setDefaultRole(e.target.value)}>
-              {roles.map((r) => (
-                <option key={r.id} value={r.name}>{r.name}</option>
-              ))}
-            </select>
+            <Select
+              ariaLabel="Default role"
+              value={defaultRole}
+              onChange={setDefaultRole}
+              options={roles.map((r) => ({ value: r.name, label: r.name }))}
+            />
             <label className="checkbox-row" style={{ marginTop: 14 }}>
               <input type="checkbox" checked={enforced} onChange={(e) => setEnforced(e.target.checked)} />
               <span>

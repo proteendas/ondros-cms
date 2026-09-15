@@ -21,8 +21,8 @@
   --warn: #fbbf24;
   --warn-soft: rgba(251, 191, 36, 0.12);
   --radius: 10px;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -174,3 +174,23 @@ table.data tr.clickable:hover td { background: var(--surface-2); }
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 8px 0; }
 .kv .item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .kv .item .k { font-size: 11px; color: var(--text-3); }
+
+/* Password / secret field with a reveal toggle (components/PasswordInput.tsx). */
+.password-field { position: relative; display: block; width: 100%; }
+.password-field .input { width: 100%; }
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border: none; border-radius: 5px;
+  background: transparent; color: var(--text-3);
+  cursor: pointer;
+}
+.password-toggle:hover:not(:disabled) { color: var(--text); background: var(--surface-2); }
+.password-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+.password-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.password-field .input::-ms-reveal,
+.password-field .input::-ms-clear { display: none; }

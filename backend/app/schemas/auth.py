@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -77,10 +78,26 @@ class AccountInfo(BaseModel):
     is_active: bool = False  # the account this token is scoped to
 
 
+class UpdateProfileRequest(BaseModel):
+    full_name: str = Field(min_length=1, max_length=200)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=200)
+
+
+class SimpleOk(BaseModel):
+    ok: bool = True
+    detail: str = ""
+
+
 class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     full_name: str
+    email_verified: bool = False
+    created_at: datetime | None = None
     tenant_id: uuid.UUID  # active account id
     roles: list[UserRoleInfo] = []
     # Capability set for the ACTIVE account (space-scoped capabilities are

@@ -4,7 +4,7 @@
  * InlineEditorOverlay: attaches inline-editing behavior to a DOM tree that
  * contains [data-cms-field-id] elements.
  *
- * On hover  -> shows a floating ✎ badge over the hovered field element.
+ * On hover  -> shows a floating pencil badge over the hovered field element.
  * On click  -> reports the field selection (inspector).
  * On double-click -> makes the element contentEditable; committing (blur or
  *                    Cmd/Ctrl+Enter) calls onCommit with the new value.
@@ -42,8 +42,11 @@ export default function InlineEditorOverlay({ iframeRef, onFieldSelected, onComm
       if (!doc?.body) return;
 
       // Floating edit badge that follows the hovered field.
+      // Icon: Bootstrap Icons webfont. This badge is injected into the preview
+      // iframe's document, which loads the `bi` stylesheet itself, so the class
+      // resolves there (spec 008, CLAUDE.md).
       const badge = doc.createElement('div');
-      badge.textContent = '✎';
+      badge.innerHTML = '<i class="bi bi-pencil-fill" aria-hidden="true"></i>';
       Object.assign(badge.style, {
         position: 'absolute',
         display: 'none',

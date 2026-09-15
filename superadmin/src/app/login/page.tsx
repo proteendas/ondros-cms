@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 
 import { platformLogin } from '@/lib/api';
+import PasswordInput from '@/components/PasswordInput';
 
 export default function SuperadminLoginPage() {
   const router = useRouter();
@@ -43,8 +44,8 @@ export default function SuperadminLoginPage() {
         <input className="input" type="email" value={email} required autoFocus
                onChange={(e) => setEmail(e.target.value)} />
         <label className="field-label">Password</label>
-        <input className="input" type="password" value={password} required
-               onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput value={password} required autoComplete="current-password"
+                       onChange={setPassword} />
         {error && <p className="error-text" style={{ marginTop: 10 }}>{error}</p>}
         <button className="btn" disabled={busy}
                 style={{ width: '100%', marginTop: 18, justifyContent: 'center' }}>

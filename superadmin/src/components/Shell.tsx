@@ -5,25 +5,16 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import {
-  Activity,
-  BarChartLine,
-  BoxArrowRight,
-  Buildings,
-  CashStack,
-  People,
-  Speedometer2,
-} from 'react-bootstrap-icons';
-
+import Icon, { type IconName } from '@/components/Icon';
 import { api, clearTokens, getAccess } from '@/lib/api';
 
-const NAV = [
-  { href: '/', label: 'Overview', icon: Speedometer2 },
-  { href: '/accounts', label: 'Accounts', icon: Buildings },
-  { href: '/users', label: 'Users', icon: People },
-  { href: '/revenue', label: 'Revenue', icon: CashStack },
-  { href: '/usage', label: 'Usage & limits', icon: BarChartLine },
-  { href: '/health', label: 'System health', icon: Activity },
+const NAV: { href: string; label: string; icon: IconName }[] = [
+  { href: '/', label: 'Overview', icon: 'overview' },
+  { href: '/accounts', label: 'Accounts', icon: 'accounts' },
+  { href: '/users', label: 'Users', icon: 'users' },
+  { href: '/revenue', label: 'Revenue', icon: 'revenue' },
+  { href: '/usage', label: 'Usage & limits', icon: 'usage' },
+  { href: '/health', label: 'System health', icon: 'health' },
 ];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
@@ -64,11 +55,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </span>
         </div>
         {NAV.map((item) => {
-          const IconComponent = item.icon;
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           return (
             <Link key={item.href} href={item.href} className={`nav-item${active ? ' active' : ''}`}>
-              <IconComponent size={15} /> {item.label}
+              <Icon name={item.icon} size={15} /> {item.label}
             </Link>
           );
         })}
@@ -80,7 +70,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             router.replace('/login');
           }}
         >
-          <BoxArrowRight size={13} /> Sign out
+          <Icon name="sign-out" size={13} /> Sign out
         </button>
         <div className="foot">{me?.email}</div>
       </aside>

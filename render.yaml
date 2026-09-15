@@ -24,6 +24,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         sync: false # postgresql+asyncpg://... from Neon/Supabase — set manually

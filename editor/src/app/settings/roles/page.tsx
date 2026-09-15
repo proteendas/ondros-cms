@@ -10,6 +10,9 @@ import { api } from '@/lib/api';
 import { ConfirmDialog, Modal, useToast } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
 import type { Role, UserSummary } from '@/lib/types';
+import Select from '@/components/ui/Select';
+import Icon from '@/components/ui/Icon';
+import PasswordInput from '@/components/ui/PasswordInput';
 
 export default function RolesPage() {
   const toast = useToast();
@@ -110,8 +113,9 @@ export default function RolesPage() {
                               await api(`/role-assignments/${a.id}`, { method: 'DELETE' });
                               load();
                             }}
+                            aria-label="Remove assignment"
                           >
-                            ✕
+                            <Icon name="close" size={12} />
                           </button>
                         </span>
                       ))}
@@ -298,23 +302,29 @@ function InviteUserModal({
         <label className="field-label">Full name</label>
         <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} />
         <label className="field-label">Password (min 8 chars)</label>
-        <input className="input" type="password" value={password} required minLength={8} onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput value={password} required minLength={8} autoComplete="new-password" onChange={setPassword} />
         <label className="field-label">Initial role</label>
-        <select className="input" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-          <option value="">— none —</option>
-          {roles.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="Role"
+          value={roleId}
+          onChange={setRoleId}
+          options={[
+            { value: '', label: '— none —' },
+            ...roles.map((r) => ({ value: r.id, label: r.name })),
+          ]}
+        />
         {roleId && (
           <>
             <label className="field-label">Scope</label>
-            <select className="input" value={spaceId} onChange={(e) => setSpaceId(e.target.value)}>
-              <option value="">Organization-wide</option>
-              {spaces.map((s) => (
-                <option key={s.id} value={s.id}>Space: {s.name}</option>
-              ))}
-            </select>
+            <Select
+              ariaLabel="Scope"
+              value={spaceId}
+              onChange={setSpaceId}
+              options={[
+                { value: '', label: 'Organization-wide' },
+                ...spaces.map((s) => ({ value: s.id, label: `Space: ${s.name}` })),
+              ]}
+            />
           </>
         )}
         {error && <p className="error-text">{error}</p>}
@@ -362,18 +372,22 @@ function AssignRoleModal({
     <Modal title={`Assign role to ${user.email}`} onClose={onClose}>
       <form onSubmit={submit}>
         <label className="field-label">Role</label>
-        <select className="input" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-          {roles.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="Role"
+          value={roleId}
+          onChange={setRoleId}
+          options={roles.map((r) => ({ value: r.id, label: r.name }))}
+        />
         <label className="field-label">Scope</label>
-        <select className="input" value={spaceId} onChange={(e) => setSpaceId(e.target.value)}>
-          <option value="">Organization-wide</option>
-          {spaces.map((s) => (
-            <option key={s.id} value={s.id}>Space: {s.name}</option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="Scope"
+          value={spaceId}
+          onChange={setSpaceId}
+          options={[
+            { value: '', label: 'Organization-wide' },
+            ...spaces.map((s) => ({ value: s.id, label: `Space: ${s.name}` })),
+          ]}
+        />
         {error && <p className="error-text">{error}</p>}
         <div className="modal-footer">
           <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
