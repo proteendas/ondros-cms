@@ -1,6 +1,6 @@
 # Deployment option: Vercel + Neon + Render (free tier)
 
-> One specific path through [DEPLOYMENT.md](DEPLOYMENT.md). That guide is the
+> One specific path through [the free-tier guide](free-tier.md). That guide is the
 > general free-tier reference and covers the alternatives (Railway instead of
 > Render, Supabase instead of Neon, fully-local docker-compose). **This page
 > commits to one combination and walks it end to end**, with the exact values,
@@ -22,7 +22,7 @@ host to babysit**. Follow the steps in order; the whole thing takes about
 
 > Prefer alternatives? Supabase swaps in for Neon (enable the `vector`
 > extension in Database → Extensions) and Railway for Render (same Docker
-> build, same env vars) — see [DEPLOYMENT.md](DEPLOYMENT.md). Everything below
+> build, same env vars) — see [the free-tier guide](free-tier.md). Everything below
 > still applies.
 
 > The public marketing site (`ondros-cms-site`) is a **separate repo** with its
@@ -48,6 +48,94 @@ can't set both before either exists, so the sequence below deliberately does a
 Skipping step 4 is the single most common cause of "it deployed but login does
 nothing" — the browser blocks the cross-origin call and the editor shows a
 network error with no server-side trace.
+
+---
+
+## Where each variable goes
+
+The single most common confusion. There are four separate places configuration
+lives, and they do **not** share values:
+
+```mermaid
+flowchart TD
+    NEON[("Neon<br/>Postgres")]
+    RENDER["Render service<br/><i>backend/</i>"]
+    VERCEL["Vercel projects<br/><i>editor / preview / superadmin</i>"]
+    LOCAL["Your laptop<br/><i>.env + docker-compose</i>"]
+
+    NEON -->|"connection string, pasted<br/>as DATABASE_URL"| RENDER
+    RENDER -->|"its public URL, pasted<br/>as NEXT_PUBLIC_API_URL"| VERCEL
+    VERCEL -->|"their URLs, pasted<br/>as CORS_ORIGINS"| RENDER
+
+    style NEON fill:#00e599,color:#000
+    style RENDER fill:#4f46e5,color:#fff
+    style VERCEL fill:#000,color:#fff
+```
+
+| Variable | Where you set it | Never set it here |
+|---|---|---|
+| `DATABASE_URL` | **Render** → your service → Environment | Vercel — the frontends never connect to Postgres. Putting a DB URL in a Vercel project (especially a `NEXT_PUBLIC_*` one) would publish your credentials in the browser bundle. |
+| `JWT_SECRET`, `AI_API_KEY`, `SMTP_*`, OAuth secrets | **Render** | Vercel, and never committed to git |
+| `CORS_ORIGINS`, `FRONTEND_URL`, `BACKEND_URL` | **Render** | — |
+| `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_*` | **Vercel** (per project) | Render. These are inlined into the browser bundle, so they must never hold a secret. |
+| `CMS_API_URL`, `CMS_DELIVERY_TOKEN`, `CMS_PREVIEW_TOKEN` | **Vercel** (preview project) | These are server-side only — note the deliberate absence of `NEXT_PUBLIC_` |
+
+### Setting `DATABASE_URL` on Render, step by step
+
+1. Neon dashboard → your project → **Connection string** → copy it.
+2. Convert it (see [step 2](#2-create-the-database-neon)): `postgresql://` →
+   `postgresql+asyncpg://`, and delete the `?sslmode=…&channel_binding=…` tail.
+3. Render dashboard → your web service → **Environment** → **Add Environment
+   Variable**.
+   - Key: `DATABASE_URL`
+   - Value: the converted string
+4. **Save Changes.** Render redeploys automatically. Watch the log for
+   `Application startup complete` — that means it connected, created the
+   pgvector extension and the tables.
+
+If you deployed via the Blueprint, Render will have prompted you for
+`DATABASE_URL` during creation (it's marked `sync: false` in
+[`render.yaml`](../../render.yaml), which means "ask, don't store in git").
+
+### Running the seed or migrations against Neon
+
+These run from **your laptop**, not from Render, so pass the URL inline — don't
+put it in a file:
+
+```bash
+cd backend
+pip install -r requirements.txt
+
+# Point at Neon just for this one command:
+DATABASE_URL="postgresql+asyncpg://user:pass@ep-xxx.neon.tech/neondb" python -m app.seed
+DATABASE_URL="postgresql+asyncpg://user:pass@ep-xxx.neon.tech/neondb" alembic upgrade head
+```
+
+### Pointing your *local* stack at Neon (and why `.env` won't do it)
+
+`docker-compose.yml` **hardcodes** the local database:
+
+```yaml
+backend:
+  environment:
+    DATABASE_URL: postgresql+asyncpg://cms:cms@db:5432/cms   # wins over .env
+```
+
+A `DATABASE_URL` in your root `.env` is therefore **ignored** for the
+containerised backend — the compose `environment:` value always wins. If you
+genuinely want local containers talking to Neon, override it explicitly and
+stop the local db:
+
+```yaml
+# docker-compose.override.yml  (git-ignored, picked up automatically)
+services:
+  backend:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:pass@ep-xxx.neon.tech/neondb
+```
+
+Be aware this points local development at the same database your deployment
+uses — a local `python -m app.seed` would then overwrite hosted data.
 
 ---
 
@@ -102,7 +190,7 @@ Render built from the repo root — fix the Root Directory, don't add a
 Dockerfile.
 
 **Option A — Blueprint (recommended).** Render → **New → Blueprint** → pick
-your fork. Render reads [`render.yaml`](render.yaml) and creates the service
+your fork. Render reads [`render.yaml`](../../render.yaml) and creates the service
 with the correct `rootDir: backend` automatically, prompting only for the
 secrets marked `sync: false`.
 

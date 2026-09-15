@@ -8,6 +8,11 @@ playground path, **not production hosting**.
 Prefer no cloud accounts at all? Jump to
 [§ Fully local with docker-compose](#fully-local-with-docker-compose).
 
+Already settled on **Vercel + Neon + Render**?
+[Vercel + Neon + Render](vercel-neon-render.md) walks that
+one combination end to end — exact env values, the URL ordering problem, and a
+troubleshooting table — instead of presenting alternatives at each step.
+
 ## The stack at a glance
 
 | Piece | This repo | Free-tier home | Why |
@@ -53,7 +58,7 @@ Directory** (see below), don't touch the Dockerfile.
 Two ways to deploy, pick one:
 
 **A. Blueprint (recommended)** — Render → **New → Blueprint** → select your
-fork. Render reads [`render.yaml`](render.yaml) at the repo root and creates
+fork. Render reads [`render.yaml`](../../render.yaml) at the repo root and creates
 the service with the right `rootDir`/`dockerfilePath` automatically; you only
 fill in the `sync: false` env vars it prompts for.
 
