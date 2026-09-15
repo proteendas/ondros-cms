@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 
 import { api, setTokens, TokenPair } from '@/lib/api';
+import PasswordInput from '@/components/ui/PasswordInput';
 
 interface InviteInfo {
   account_name: string;
@@ -67,8 +68,8 @@ export default function AcceptInvitePage() {
                 <label className="field-label">Your name</label>
                 <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 <label className="field-label">Choose a password (min 8 characters)</label>
-                <input className="input" type="password" value={password} required minLength={8}
-                       onChange={(e) => setPassword(e.target.value)} />
+                <PasswordInput value={password} required minLength={8}
+                               autoComplete="new-password" onChange={setPassword} />
               </>
             )}
             {error && <p className="error-text" style={{ marginTop: 10 }}>{error}</p>}

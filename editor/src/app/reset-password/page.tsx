@@ -4,6 +4,8 @@ import { useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useState } from 'react';
 
 import { api, setTokens, TokenPair } from '@/lib/api';
+import LegalFooter from '@/components/ui/LegalFooter';
+import PasswordInput from '@/components/ui/PasswordInput';
 
 export default function ResetPasswordPage() {
   return (
@@ -46,16 +48,17 @@ function ResetInner() {
       <form className="login-card" onSubmit={submit}>
         <h1 style={{ fontSize: 18, marginTop: 0 }}>Choose a new password</h1>
         <label className="field-label">New password (min 8 characters)</label>
-        <input className="input" type="password" value={password} required minLength={8} autoFocus
-               onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput value={password} required minLength={8} autoFocus
+                       autoComplete="new-password" onChange={setPassword} />
         <label className="field-label">Confirm password</label>
-        <input className="input" type="password" value={confirm} required
-               onChange={(e) => setConfirm(e.target.value)} />
+        <PasswordInput value={confirm} required
+                       autoComplete="new-password" onChange={setConfirm} />
         {error && <p className="error-text" style={{ marginTop: 10 }}>{error}</p>}
         <button className="btn" disabled={busy} style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}>
           {busy ? 'Saving…' : 'Set password & sign in'}
         </button>
       </form>
+      <LegalFooter />
     </div>
   );
 }
