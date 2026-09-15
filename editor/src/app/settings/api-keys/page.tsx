@@ -10,6 +10,7 @@ import { API_URL, api } from '@/lib/api';
 import { ConfirmDialog, Modal, formatDate, useToast } from '@/components/ui';
 import { useWorkspace } from '@/lib/workspace';
 import type { ApiKey } from '@/lib/types';
+import Icon from '@/components/ui/Icon';
 
 export default function ApiKeysPage() {
   const toast = useToast();
@@ -46,7 +47,7 @@ export default function ApiKeysPage() {
           </p>
         </div>
         <span className="spacer" />
-        <button className="btn" onClick={() => setCreating(true)}>+ Create key</button>
+        <button className="btn" onClick={() => setCreating(true)}><Icon name="add" size={13} /> Create key</button>
       </div>
 
       <div className="table-wrap">

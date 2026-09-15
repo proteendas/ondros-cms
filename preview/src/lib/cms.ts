@@ -19,6 +19,8 @@ export interface FieldDef {
   type: string;
   localized?: boolean;
   validations?: Record<string, unknown>;
+  /** Sub-schema for `type: 'group'` — a repeatable multifield container. */
+  fields?: FieldDef[];
 }
 
 export interface DeliveredEntry {

@@ -52,8 +52,8 @@ export default function RolesPage() {
         <span className="spacer" />
         {isAdmin && (
           <>
-            <button className="btn secondary" onClick={() => setEditingRole('new')}>+ Custom role</button>
-            <button className="btn" onClick={() => setInviting(true)}>+ Add user</button>
+            <button className="btn secondary" onClick={() => setEditingRole('new')}><Icon name="add" size={13} /> Custom role</button>
+            <button className="btn" onClick={() => setInviting(true)}><Icon name="add" size={13} /> Add user</button>
           </>
         )}
       </div>

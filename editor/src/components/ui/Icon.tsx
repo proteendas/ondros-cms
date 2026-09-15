@@ -75,6 +75,7 @@ export const ICONS = {
   highlighter: 'highlighter',
   table: 'table',
   'field-reference-many': 'link',
+  'field-group': 'collection',
   'field-json': 'braces',
   'field-slug': 'slash',
   // Media kinds

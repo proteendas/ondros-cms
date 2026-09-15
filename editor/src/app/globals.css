@@ -1222,3 +1222,66 @@ table.list td.actions { text-align: right; white-space: nowrap; }
   .card, .profile-card, form { max-width: 100%; }
   .modal-footer { flex-wrap: wrap; }
 }
+
+/* ---- Multi-select chips (ui/MultiSelectChips.tsx) -------------------------- */
+
+.multiselect { margin-bottom: 4px; }
+.multiselect-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 0 0 8px;
+}
+.chip-remove {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; margin-left: 2px;
+  border: none; border-radius: 50%;
+  background: transparent; color: inherit;
+  cursor: pointer; opacity: 0.65;
+}
+.chip-remove:hover:not(:disabled) { opacity: 1; background: rgba(0, 0, 0, 0.08); }
+.chip-remove:disabled { cursor: not-allowed; opacity: 0.3; }
+
+/* ---- Repeatable group / multifield (DynamicEntryForm) --------------------- */
+
+.group-field { margin-top: 4px; }
+
+.group-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.group-item-head {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 8px 6px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.group-item-index {
+  font-size: 11.5px; font-weight: 700; color: var(--text-3);
+  min-width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); border-radius: 4px;
+}
+.group-item-body { padding: 4px 12px 14px; }
+/* First label inside a row shouldn't push the row open. */
+.group-item-body > div:first-child .field-label { margin-top: 8px; }
+
+/* Nested groups step in slightly so the hierarchy is readable. */
+.group-item .group-field { padding-left: 6px; border-left: 2px solid var(--border); }
+
+/* ---- Sub-field builder (content model → multi-field group) ----------------- */
+
+.subfield-list { display: flex; flex-direction: column; gap: 6px; }
+.subfield-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+.subfield-name { font-size: 13px; font-weight: 600; }
+.subfield-id {
+  font-size: 11px; background: transparent; border: none; padding: 0;
+  color: var(--text-3); margin-right: 6px;
+}

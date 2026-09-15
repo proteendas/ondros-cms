@@ -154,7 +154,7 @@ export default function ContentTypeBuilderPage() {
             <h2 style={{ margin: 0 }}>Fields</h2>
             <span className="spacer" />
             <button className="btn secondary small" onClick={() => setDialogIndex('new')}>
-              + Add field
+              <Icon name="add" size={13} /> Add field
             </button>
           </div>
 
@@ -407,8 +407,9 @@ function FieldDialog({
   const [idTouched, setIdTouched] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
 
+  const isGroup = draft.type === 'group';
   const isReference = draft.type === 'reference' || draft.type === 'reference_many';
-  const isMany = draft.type === 'reference_many' || draft.type === 'media_many';
+  const isMany = draft.type === 'reference_many' || draft.type === 'media_many' || draft.type === 'group';
   const isTextual = ['text', 'longtext', 'richtext', 'slug'].includes(draft.type);
 
   function patch(p: Partial<FieldDef>) {
@@ -427,6 +428,8 @@ function FieldDialog({
     if (existingIds.includes(draft.id)) return setError(`Field id "${draft.id}" already exists`);
     if (draft.type === 'select' && !(draft.validations.allowed_values ?? []).length)
       return setError('Enum fields need at least one allowed value');
+    if (isGroup && !(draft.fields ?? []).length)
+      return setError('A multi-field group needs at least one sub-field');
     onSave(draft);
   }
 
@@ -540,6 +543,13 @@ function FieldDialog({
             </>
           )}
 
+          {isGroup && (
+            <SubFieldBuilder
+              fields={draft.fields ?? []}
+              onChange={(fields) => patch({ fields })}
+            />
+          )}
+
           {draft.type === 'richtext' && (
             <RichTextRestrictions
               cfg={draft.rich_text ?? {}}
@@ -624,3 +634,128 @@ function FieldDialog({
     </Modal>
   );
 }
+
+/* ---- Sub-field builder (multi-field groups) ------------------------------- */
+
+/**
+ * Defines the sub-schema of a repeatable group.
+ *
+ * Kept deliberately simpler than the top-level field editor: a sub-field has an
+ * id, a name, a type and required/limits. Localization is excluded because the
+ * group localizes as a whole — a locale map inside every row would make the
+ * stored shape much harder to consume.
+ *
+ * Nested groups are allowed (the backend guards depth), which is what makes
+ * "sections, each containing cards" expressible.
+ */
+function SubFieldBuilder({
+  fields,
+  onChange,
+}: {
+  fields: FieldDef[];
+  onChange: (fields: FieldDef[]) => void;
+}) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState<FieldType>('text');
+  const [error, setError] = useState<string | null>(null);
+
+  function add() {
+    const trimmed = name.trim();
+    if (!trimmed) return setError('Name is required');
+    const id = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!/^[a-z][a-z0-9_]*$/.test(id)) return setError('Could not derive a valid id from that name');
+    if (fields.some((f) => f.id === id)) return setError(`Sub-field "${id}" already exists`);
+    onChange([...fields, { id, name: trimmed, type, validations: {} }]);
+    setName('');
+    setType('text');
+    setError(null);
+  }
+
+  function move(index: number, delta: number) {
+    const target = index + delta;
+    if (target < 0 || target >= fields.length) return;
+    const next = [...fields];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  }
+
+  function patchSub(index: number, patch: Partial<FieldDef>) {
+    onChange(fields.map((f, i) => (i === index ? { ...f, ...patch } : f)));
+  }
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <label className="field-label" style={{ marginTop: 0 }}>
+        Sub-fields <span className="muted small">(each item repeats these)</span>
+      </label>
+
+      {fields.length === 0 ? (
+        <p className="help-text">No sub-fields yet — add at least one below.</p>
+      ) : (
+        <div className="subfield-list">
+          {fields.map((f, i) => (
+            <div key={f.id} className="subfield-row">
+              <Icon name={FIELD_TYPE_INFO[f.type]?.icon ?? 'field-text'} size={13} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="subfield-name">{f.name}</div>
+                <code className="subfield-id">{f.id}</code>
+                <span className="field-type-tag">{f.type}</span>
+              </div>
+              <label className="checkbox-row" style={{ margin: 0 }} title="Required in every item">
+                <input
+                  type="checkbox"
+                  checked={!!f.validations?.required}
+                  onChange={(e) =>
+                    patchSub(i, { validations: { ...f.validations, required: e.target.checked } })
+                  }
+                />
+                <span className="muted small">req</span>
+              </label>
+              <button type="button" className="btn ghost tiny" title="Move up"
+                      disabled={i === 0} onClick={() => move(i, -1)}>
+                <Icon name="move-up" size={11} />
+              </button>
+              <button type="button" className="btn ghost tiny" title="Move down"
+                      disabled={i === fields.length - 1} onClick={() => move(i, 1)}>
+                <Icon name="move-down" size={11} />
+              </button>
+              <button type="button" className="btn ghost tiny" title="Remove sub-field"
+                      style={{ color: 'var(--danger)' }}
+                      onClick={() => onChange(fields.filter((_, x) => x !== i))}>
+                <Icon name="delete" size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="row" style={{ gap: 8, marginTop: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 150px' }}>
+          <input
+            className="input"
+            placeholder="Sub-field name"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setError(null); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+          />
+        </div>
+        <div style={{ flex: '0 1 170px' }}>
+          <Select
+            ariaLabel="Sub-field type"
+            value={type}
+            onChange={(v) => setType(v as FieldType)}
+            options={Object.entries(FIELD_TYPE_INFO).map(([value, info]) => ({
+              value,
+              label: info.label,
+            }))}
+          />
+        </div>
+        <button type="button" className="btn secondary" onClick={add}>
+          <Icon name="add" size={13} /> Add
+        </button>
+      </div>
+      {error && <p className="error-text" style={{ marginTop: 6 }}>{error}</p>}
+    </div>
+  );
+}
+

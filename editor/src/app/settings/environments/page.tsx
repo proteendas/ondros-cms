@@ -39,7 +39,7 @@ export default function EnvironmentsPage() {
           </p>
         </div>
         <span className="spacer" />
-        <button className="btn" onClick={() => setCreating(true)}>+ Add environment</button>
+        <button className="btn" onClick={() => setCreating(true)}><Icon name="add" size={13} /> Add environment</button>
       </div>
 
       <div className="table-wrap">
@@ -318,7 +318,7 @@ function LocalesModal({
         style={{ marginTop: 10 }}
         onClick={() => setItems([...items, { code: '', name: '' }])}
       >
-        + Add locale
+        <Icon name="add" size={13} /> Add locale
       </button>
       {error && <p className="error-text">{error}</p>}
       <div className="modal-footer">

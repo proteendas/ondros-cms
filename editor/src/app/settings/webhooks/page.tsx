@@ -7,14 +7,21 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
 import { ConfirmDialog, Modal, formatDate, useToast } from '@/components/ui';
+import Icon from '@/components/ui/Icon';
+import MultiSelectChips from '@/components/ui/MultiSelectChips';
+import Select from '@/components/ui/Select';
 import { useWorkspace } from '@/lib/workspace';
-import type { Webhook, WebhookDelivery } from '@/lib/types';
+import type { ContentType, Webhook, WebhookDelivery } from '@/lib/types';
 
 export default function WebhooksPage() {
   const toast = useToast();
-  const { spacePath } = useWorkspace();
+  const { spacePath, space } = useWorkspace();
   const [hooks, setHooks] = useState<Webhook[] | null>(null);
   const [eventTypes, setEventTypes] = useState<string[]>([]);
+  /** api_ids across every environment in the space. Webhooks are space-scoped
+   *  and can filter by environment separately, so restricting this list to the
+   *  currently-selected environment would hide valid choices. */
+  const [contentTypeIds, setContentTypeIds] = useState<string[]>([]);
   const [editing, setEditing] = useState<Webhook | 'new' | null>(null);
   const [deleting, setDeleting] = useState<Webhook | null>(null);
   const [logFor, setLogFor] = useState<Webhook | null>(null);
@@ -25,7 +32,16 @@ export default function WebhooksPage() {
     api<{ events: string[] }>(`${spacePath}/webhooks/event-types`)
       .then((d) => setEventTypes(d.events))
       .catch(() => {});
-  }, [spacePath]);
+
+    const envs = space?.environments ?? [];
+    Promise.all(
+      envs.map((env) =>
+        api<ContentType[]>(`${spacePath}/environments/${env.key}/content-types`).catch(() => []),
+      ),
+    )
+      .then((lists) => setContentTypeIds(Array.from(new Set(lists.flat().map((t) => t.api_id))).sort()))
+      .catch(() => setContentTypeIds([]));
+  }, [spacePath, space]);
 
   useEffect(load, [load]);
 
@@ -41,7 +57,7 @@ export default function WebhooksPage() {
           </p>
         </div>
         <span className="spacer" />
-        <button className="btn" onClick={() => setEditing('new')}>+ Add webhook</button>
+        <button className="btn" onClick={() => setEditing('new')}><Icon name="add" size={13} /> Add webhook</button>
       </div>
 
       <div className="table-wrap">
@@ -89,6 +105,8 @@ export default function WebhooksPage() {
           spacePath={spacePath}
           hook={editing === 'new' ? null : editing}
           eventTypes={eventTypes}
+          contentTypeIds={contentTypeIds}
+          environmentKeys={(space?.environments ?? []).map((e) => e.key)}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -117,12 +135,16 @@ function WebhookModal({
   spacePath,
   hook,
   eventTypes,
+  contentTypeIds,
+  environmentKeys,
   onClose,
   onSaved,
 }: {
   spacePath: string;
   hook: Webhook | null;
   eventTypes: string[];
+  contentTypeIds: string[];
+  environmentKeys: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -131,8 +153,8 @@ function WebhookModal({
   const [secret, setSecret] = useState('');
   const [enabled, setEnabled] = useState(hook?.enabled ?? true);
   const [events, setEvents] = useState<string[]>(hook?.events ?? []);
-  const [ctFilter, setCtFilter] = useState((hook?.filters.content_types ?? []).join(', '));
-  const [envFilter, setEnvFilter] = useState((hook?.filters.environments ?? []).join(', '));
+  const [ctFilter, setCtFilter] = useState<string[]>(hook?.filters.content_types ?? []);
+  const [envFilter, setEnvFilter] = useState<string[]>(hook?.filters.environments ?? []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -145,10 +167,7 @@ function WebhookModal({
       url,
       enabled,
       events,
-      filters: {
-        content_types: ctFilter.split(',').map((s) => s.trim()).filter(Boolean),
-        environments: envFilter.split(',').map((s) => s.trim()).filter(Boolean),
-      },
+      filters: { content_types: ctFilter, environments: envFilter },
     };
     if (secret) payload.secret = secret;
     try {
@@ -179,10 +198,24 @@ function WebhookModal({
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
               Enabled
             </label>
-            <label className="field-label">Content type filter (api_ids, comma-separated; empty = all)</label>
-            <input className="input mono" value={ctFilter} placeholder="article, landing_page" onChange={(e) => setCtFilter(e.target.value)} />
-            <label className="field-label">Environment filter (keys; empty = all)</label>
-            <input className="input mono" value={envFilter} placeholder="master" onChange={(e) => setEnvFilter(e.target.value)} />
+            <MultiSelectChips
+              label="Content type filter"
+              value={ctFilter}
+              onChange={setCtFilter}
+              options={contentTypeIds}
+              placeholder="Add a content type…"
+              emptyHint="No filter — fires for every content type."
+              noOptionsHint="This space has no content types yet."
+            />
+            <MultiSelectChips
+              label="Environment filter"
+              value={envFilter}
+              onChange={setEnvFilter}
+              options={environmentKeys}
+              placeholder="Add an environment…"
+              emptyHint="No filter — fires in every environment."
+              noOptionsHint="This space has no environments."
+            />
           </div>
           <div style={{ flex: '1 1 240px' }}>
             <label className="field-label" style={{ marginTop: 0 }}>

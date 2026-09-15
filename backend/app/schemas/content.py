@@ -44,6 +44,9 @@ FieldType = Literal[
     "reference_many",
     "json",
     "slug",
+    # Repeatable container of sub-fields (AEM-style multifield). Its value is a
+    # list of objects keyed by the ids in FieldDef.fields.
+    "group",
 ]
 
 # Types whose stored value is an entry id (or list of ids) — used by
@@ -60,7 +63,7 @@ class FieldValidations(BaseModel):
     min: float | None = None
     max: float | None = None
     allowed_values: list[str] | None = None  # for "select"
-    # For reference_many / media_many: bounds on the number of linked items.
+    # For reference_many / media_many / group: bounds on the number of items.
     min_items: int | None = None
     max_items: int | None = None
 
@@ -93,6 +96,12 @@ class FieldDef(BaseModel):
     help_text: str = ""
     # Free-form hint injected into AI prompts, e.g. "Meta description, max 160 chars".
     ai_hint: str = ""
+    # For type="group": the sub-schema each repeated item follows. Nested groups
+    # are allowed; app.core.validation caps the depth at MAX_GROUP_DEPTH.
+    fields: list["FieldDef"] = []
+
+
+FieldDef.model_rebuild()  # resolves the self-reference in FieldDef.fields
 
 
 class ContentTypeCreate(BaseModel):

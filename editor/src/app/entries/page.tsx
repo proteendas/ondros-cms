@@ -112,7 +112,7 @@ function EntriesPageInner() {
         <span className="spacer" />
         {can('manage_entries') && (
           <button className="btn" onClick={() => setCreating(true)} disabled={!types.length}>
-            + Add entry
+            <Icon name="add" size={13} /> Add entry
           </button>
         )}
       </div>

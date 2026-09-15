@@ -85,6 +85,30 @@ function Field({
   }
 
   switch (field.type) {
+    case 'group': {
+      // Repeatable multifield: render each row against the group's sub-schema.
+      // Rows carry their index so the inline-editing bridge can address a
+      // specific one rather than the whole collection.
+      const rows = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+      const subFields = field.fields ?? [];
+      return (
+        <div {...attrs} className={`cms-group cms-group-${field.id}`}>
+          {rows.map((row, index) => (
+            <div key={index} className="cms-group-item" data-cms-group-index={index}>
+              {subFields.map((sf) => (
+                <Field
+                  key={sf.id}
+                  field={{ ...sf, id: `${field.id}[${index}].${sf.id}` }}
+                  value={row?.[sf.id]}
+                  maps={maps}
+                  depth={depth}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
     case 'richtext':
       // Spec 015: value is a ProseMirror JSON doc (new) or a legacy HTML string.
       if (value && typeof value === 'object' && (value as RichTextNode).type === 'doc') {

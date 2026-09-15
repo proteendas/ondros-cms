@@ -123,7 +123,7 @@ export default function ReferencePicker({
       })}
 
       <button type="button" className="btn secondary small" style={{ marginTop: 8 }} onClick={() => setPicking(true)}>
-        + Link {multiple ? 'entries' : ids.length ? 'a different entry' : 'an entry'}
+        <Icon name="add" size={13} /> Link {multiple ? 'entries' : ids.length ? 'a different entry' : 'an entry'}
       </button>
 
       {picking && (

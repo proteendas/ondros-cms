@@ -15,6 +15,11 @@ from typing import Any
 from app.core import richtext
 
 REFERENCE_TYPES = {"reference", "reference_many"}
+# A "group" is a repeatable container of sub-fields (AEM-style multifield):
+# its value is a LIST of dicts, each mapping sub-field id -> value.
+GROUP_TYPES = {"group"}
+# Guard against a pathological schema recursing forever.
+MAX_GROUP_DEPTH = 3
 MEDIA_TYPES = {"media", "media_many"}
 MANY_TYPES = {"reference_many", "media_many"}
 # richtext is handled separately (str legacy HTML OR ProseMirror JSON doc).
@@ -67,6 +72,12 @@ def _check_type(fd: dict, value: Any) -> str | None:
             datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return f"Field '{fid}' is not a valid ISO-8601 datetime"
+    if ftype in GROUP_TYPES:
+        if not isinstance(value, list):
+            return f"Field '{fid}' must be a list of items"
+        if any(not isinstance(item, dict) for item in value):
+            return f"Field '{fid}' items must be objects"
+        return None
     if ftype in ("media", "reference") and not _is_uuid(value):
         return f"Field '{fid}' must be an id (uuid string)"
     if ftype in MANY_TYPES:
@@ -110,11 +121,16 @@ def validate_entry_fields(
     values: dict[str, Any],
     default_locale: str = "en-US",
     locale_codes: list[str] | None = None,
+    _depth: int = 0,
 ) -> list[str]:
     """Validate entry values against the content type schema.
 
     Drafts are allowed to be invalid (so editors can save partial work);
     this runs on publish. Returns a flat list of error strings.
+
+    `group` fields recurse: each item in the list is validated against the
+    group's own `fields`, with errors prefixed by the item index so an editor
+    can tell WHICH row is wrong.
     """
     errors: list[str] = []
     known_locales = set(locale_codes or [default_locale])
@@ -154,6 +170,39 @@ def validate_entry_fields(
                 continue
             errors.extend(_check_validations(fd, raw))
 
+            if fd.get("type") in GROUP_TYPES and isinstance(raw, list):
+                errors.extend(_validate_group_items(fd, raw, default_locale, locale_codes, _depth))
+
+    return errors
+
+
+def _validate_group_items(
+    fd: dict,
+    items: list,
+    default_locale: str,
+    locale_codes: list[str] | None,
+    depth: int,
+) -> list[str]:
+    """Validate each row of a repeatable group against the group's sub-schema."""
+    fid = fd["id"]
+    if depth >= MAX_GROUP_DEPTH:
+        return [f"Field '{fid}' nests groups deeper than {MAX_GROUP_DEPTH} levels"]
+
+    sub_defs = fd.get("fields") or []
+    if not sub_defs:
+        # A container with no sub-fields can hold nothing meaningful; flag the
+        # schema rather than silently accepting arbitrary objects.
+        return [f"Field '{fid}' is a group but defines no sub-fields"]
+
+    errors: list[str] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            errors.append(f"Field '{fid}' item {index + 1} must be an object")
+            continue
+        for err in validate_entry_fields(
+            sub_defs, item, default_locale, locale_codes, _depth=depth + 1
+        ):
+            errors.append(f"{fid}[{index + 1}]: {err}")
     return errors
 
 
@@ -193,6 +242,28 @@ def collect_linked_ids(field_defs: list[dict], values: dict[str, Any]) -> tuple[
                 if e_ids:
                     entry_ids.setdefault(fd["id"], set()).update(e_ids)
                 media_ids.update(a_ids)
+            continue
+
+        if ftype in GROUP_TYPES:
+            # References and media nested inside a repeatable group must still
+            # resolve at delivery time, so recurse into every row.
+            sub_defs = fd.get("fields") or []
+            rows: list[Any] = []
+            if fd.get("localized") and isinstance(raw, dict):
+                for per_locale in raw.values():
+                    if isinstance(per_locale, list):
+                        rows.extend(per_locale)
+            elif isinstance(raw, list):
+                rows = raw
+            for item in rows:
+                if not isinstance(item, dict):
+                    continue
+                sub_entry_ids, sub_media = collect_linked_ids(sub_defs, item)
+                for sub_fid, ids in sub_entry_ids.items():
+                    # Namespaced so a consumer can tell nested links apart from
+                    # top-level ones when resolving allowed_content_types.
+                    entry_ids.setdefault(f"{fd['id']}.{sub_fid}", set()).update(ids)
+                media_ids.update(sub_media)
             continue
 
         if ftype not in REFERENCE_TYPES | MEDIA_TYPES:

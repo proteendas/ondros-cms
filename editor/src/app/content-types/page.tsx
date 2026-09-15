@@ -44,7 +44,7 @@ export default function ContentTypesPage() {
         <span className="spacer" />
         {can('manage_content_types') && (
           <button className="btn" onClick={() => setCreating(true)}>
-            + Add content type
+            <Icon name="add" size={13} /> Add content type
           </button>
         )}
       </div>
@@ -63,7 +63,7 @@ export default function ContentTypesPage() {
           action={
             can('manage_content_types') ? (
               <button className="btn" onClick={() => setCreating(true)}>
-                + Add content type
+                <Icon name="add" size={13} /> Add content type
               </button>
             ) : undefined
           }

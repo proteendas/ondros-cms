@@ -49,7 +49,7 @@ export default function LocalesPage() {
         </div>
         <span className="spacer" />
         {manage && (
-          <button className="btn" onClick={() => setAdding(true)}>+ Add locale</button>
+          <button className="btn" onClick={() => setAdding(true)}><Icon name="add" size={13} /> Add locale</button>
         )}
       </div>
 

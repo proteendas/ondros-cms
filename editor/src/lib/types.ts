@@ -5,6 +5,7 @@
  */
 
 export type FieldType =
+  | 'group'
   | 'text'
   | 'longtext'
   | 'richtext'
@@ -37,6 +38,11 @@ export const FIELD_TYPE_INFO: Record<FieldType, { label: string; icon: IconName;
   reference_many: { label: 'References (many)', icon: 'field-reference-many', hint: 'Ordered links — assemblies' },
   json: { label: 'JSON', icon: 'field-json', hint: 'Arbitrary JSON object' },
   slug: { label: 'Slug', icon: 'field-slug', hint: 'URL-safe identifier' },
+  group: {
+    label: 'Multi-field group',
+    icon: 'field-group',
+    hint: 'Repeatable set of sub-fields (like an AEM multifield)',
+  },
 };
 
 export interface FieldValidations {
@@ -70,6 +76,11 @@ export interface FieldDef {
   allowed_content_types?: string[];
   /** Restrictions for richtext fields (spec 015). */
   rich_text?: RichTextConfig | null;
+  /**
+   * Sub-fields, for `type: 'group'` only — a repeatable container whose value
+   * is an array of objects keyed by these sub-field ids.
+   */
+  fields?: FieldDef[];
   help_text?: string;
   ai_hint?: string;
 }

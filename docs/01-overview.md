@@ -14,7 +14,7 @@ example consumer, not a requirement.
 | Capability | What it means |
 |---|---|
 | **Multi-tenancy** | Organizations → spaces → environments, isolated at every query |
-| **Content modeling** | 14 field types, references/assemblies, per-field localization |
+| **Content modeling** | 15 field types, references/assemblies, repeatable multifield groups, per-field localization |
 | **Three API planes** | Management (write), Delivery (published), Preview (drafts) |
 | **Roles & permissions** | 5 system roles + custom roles over 11 capabilities, org-wide or per-space |
 | **Visual editing** | Split-view live preview, click-to-field, inline editing in the rendered page |

@@ -151,3 +151,7 @@ main.entry h1 {
 .listing li {
   margin: 8px 0;
 }
+
+/* Repeatable multifield group rendered from a content type's sub-schema. */
+.cms-group { display: flex; flex-direction: column; gap: 18px; }
+.cms-group-item { padding-left: 14px; border-left: 3px solid #e4e7ec; }

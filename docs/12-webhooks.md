@@ -30,7 +30,7 @@ curl -X POST "localhost:8000/spaces/$SPACE/webhooks" \
     "url": "https://api.vercel.com/v1/integrations/deploy/…",
     "secret": "a-long-random-string",
     "events": ["entry.publish", "entry.unpublish", "entry.delete"],
-    "filters": { "content_type": "landing_page", "environment": "master" },
+    "filters": { "content_types": ["landing_page"], "environments": ["master"] },
     "headers": { "X-Custom": "value" }
   }'
 ```
@@ -40,11 +40,11 @@ curl -X POST "localhost:8000/spaces/$SPACE/webhooks" \
 | `url` | Your endpoint. HTTPS in production |
 | `secret` | Used to HMAC-sign the body. Omit and payloads are unsigned |
 | `events` | Which events to receive. Empty means all |
-| `filters` | Optional `content_type` and/or `environment` narrowing |
+| `filters` | Optional `content_types[]` and/or `environments[]` narrowing (api_ids / env keys). Empty array = no filter |
 | `headers` | Extra headers, e.g. an auth token for your endpoint |
 | `enabled` | Set `false` to pause without deleting |
 
-Filters matter: without `environment: "master"`, a colleague publishing in
+Filters matter: without `environments: ["master"]`, a colleague publishing in
 `staging` rebuilds production.
 
 ## Payload
@@ -180,7 +180,7 @@ export async function POST(req: Request) {
 ```
 
 **Slack notification** — subscribe to `entry.publish` and post to an incoming
-webhook URL. Use `filters.content_type` so only the types you care about ping
+webhook URL. Use `filters.content_types` so only the types you care about ping
 the channel.
 
 ## Troubleshooting
@@ -189,7 +189,7 @@ the channel.
 |---|---|
 | Nothing arrives | Webhook `enabled: false`, event not subscribed, or a filter excluding it |
 | Signature never matches | Verifying re-serialized JSON instead of the raw body |
-| Fires for the wrong environment | No `environment` filter |
+| Fires for the wrong environment | No `environments` filter |
 | Fires constantly | Subscribed to `entry.update`, which fires on every draft save |
 | Log shows a timeout | Receiver took over 10s — acknowledge first, work after |
 

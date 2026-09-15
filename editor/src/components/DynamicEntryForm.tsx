@@ -15,6 +15,7 @@ import type { ContentType, FieldDef } from '@/lib/types';
 import MediaPicker from './MediaPicker';
 import ReferencePicker from './ReferencePicker';
 import RichTextField from './RichTextField';
+import Icon from '@/components/ui/Icon';
 import Select from '@/components/ui/Select';
 
 interface Props {
@@ -105,6 +106,18 @@ function FieldInput({
   defaultLocale: string;
 }) {
   switch (field.type) {
+    case 'group':
+      return (
+        <GroupField
+          field={field}
+          value={value}
+          onChange={onChange}
+          allTypes={allTypes}
+          envPath={envPath}
+          spacePath={spacePath}
+          defaultLocale={defaultLocale}
+        />
+      );
     case 'richtext':
       return (
         <RichTextField
@@ -258,6 +271,145 @@ function JsonInput({ value, onChange }: { value: unknown; onChange: (v: unknown)
         }}
       />
       {invalid && <p className="error-text small">Invalid JSON — changes not saved yet.</p>}
+    </div>
+  );
+}
+
+/* ---- Repeatable group (multifield) --------------------------------------- */
+
+/**
+ * AEM-style multifield: a repeatable container of sub-fields.
+ *
+ * The stored value is an array of objects keyed by sub-field id. Rows can be
+ * added, removed and reordered; row order IS the render order, so reordering
+ * is a content decision, not a cosmetic one.
+ *
+ * Sub-fields are not individually localizable — localize the group as a whole
+ * instead, which keeps the stored shape a flat {locale: rows[]} rather than a
+ * locale map inside every row.
+ */
+function GroupField({
+  field,
+  value,
+  onChange,
+  allTypes,
+  envPath,
+  spacePath,
+  defaultLocale,
+}: {
+  field: FieldDef;
+  value: unknown;
+  onChange: (v: unknown) => void;
+  allTypes: ContentType[];
+  envPath: string;
+  spacePath: string;
+  defaultLocale: string;
+}) {
+  const subFields = field.fields ?? [];
+  const rows: Record<string, unknown>[] = Array.isArray(value)
+    ? (value as Record<string, unknown>[])
+    : [];
+
+  const max = field.validations.max_items;
+  const min = field.validations.min_items;
+  const atMax = typeof max === 'number' && rows.length >= max;
+
+  function update(next: Record<string, unknown>[]) {
+    onChange(next);
+  }
+
+  function addRow() {
+    if (atMax) return;
+    update([...rows, {}]);
+  }
+
+  function removeRow(index: number) {
+    update(rows.filter((_, i) => i !== index));
+  }
+
+  function moveRow(index: number, delta: number) {
+    const target = index + delta;
+    if (target < 0 || target >= rows.length) return;
+    const next = [...rows];
+    [next[index], next[target]] = [next[target], next[index]];
+    update(next);
+  }
+
+  function setCell(index: number, subId: string, v: unknown) {
+    update(rows.map((row, i) => (i === index ? { ...row, [subId]: v } : row)));
+  }
+
+  if (subFields.length === 0) {
+    return (
+      <p className="help-text">
+        <Icon name="warning" size={12} /> This group has no sub-fields yet — add
+        some in the content model.
+      </p>
+    );
+  }
+
+  return (
+    <div className="group-field">
+      {rows.length === 0 && (
+        <p className="muted small" style={{ margin: '4px 0 10px' }}>
+          No items yet.
+          {typeof min === 'number' && min > 0 && ` At least ${min} required.`}
+        </p>
+      )}
+
+      {rows.map((row, index) => (
+        <div className="group-item" key={index}>
+          <div className="group-item-head">
+            <span className="group-item-index">{index + 1}</span>
+            <span className="spacer" />
+            <button
+              type="button" className="btn ghost tiny" title="Move up"
+              disabled={index === 0} onClick={() => moveRow(index, -1)}
+            >
+              <Icon name="move-up" size={12} />
+            </button>
+            <button
+              type="button" className="btn ghost tiny" title="Move down"
+              disabled={index === rows.length - 1} onClick={() => moveRow(index, 1)}
+            >
+              <Icon name="move-down" size={12} />
+            </button>
+            <button
+              type="button" className="btn ghost tiny" title="Remove item"
+              style={{ color: 'var(--danger)' }} onClick={() => removeRow(index)}
+            >
+              <Icon name="delete" size={12} />
+            </button>
+          </div>
+
+          <div className="group-item-body">
+            {subFields.map((sf) => (
+              <div key={sf.id}>
+                <label className="field-label">
+                  {sf.name}
+                  {sf.validations?.required && <span className="error-text">*</span>}
+                  <span className="field-type-tag">{sf.type}</span>
+                </label>
+                <FieldInput
+                  field={sf}
+                  value={row[sf.id]}
+                  onChange={(v) => setCell(index, sf.id, v)}
+                  allTypes={allTypes}
+                  envPath={envPath}
+                  spacePath={spacePath}
+                  defaultLocale={defaultLocale}
+                />
+                {sf.help_text && <p className="help-text">{sf.help_text}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <button type="button" className="btn secondary small" disabled={atMax} onClick={addRow}>
+        <Icon name="add" size={13} /> Add item
+      </button>
+      {atMax && <span className="muted small" style={{ marginLeft: 8 }}>Maximum {max} reached.</span>}
     </div>
   );
 }

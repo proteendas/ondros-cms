@@ -47,7 +47,7 @@ export default function SecurityPage() {
           </p>
         </div>
         <span className="spacer" />
-        <button className="btn" onClick={() => setEditing('new')}>+ Add provider</button>
+        <button className="btn" onClick={() => setEditing('new')}><Icon name="add" size={13} /> Add provider</button>
       </div>
 
       {accountSlug && (

@@ -76,7 +76,21 @@ async def validate_references(db: AsyncSession, entry: Entry, field_defs: list[d
             )
         ).all()
         found = {str(rid): api_id for rid, api_id in rows}
-        defs_by_id = {fd["id"]: fd for fd in field_defs}
+        # collect_linked_ids namespaces nested links as "group.subfield", so the
+        # lookup has to know those keys too — otherwise allowed_content_types
+        # would silently go unenforced inside a repeatable group.
+        def _flatten_defs(defs: list[dict], prefix: str = "", depth: int = 0) -> dict[str, dict]:
+            out: dict[str, dict] = {}
+            if depth > 3:
+                return out
+            for d in defs:
+                key = f"{prefix}{d['id']}"
+                out[key] = d
+                if d.get("type") == "group":
+                    out.update(_flatten_defs(d.get("fields") or [], f"{key}.", depth + 1))
+            return out
+
+        defs_by_id = _flatten_defs(field_defs)
         for fid, ids in entry_ids_by_field.items():
             fd = defs_by_id.get(fid, {})
             is_richtext = fd.get("type") == "richtext"

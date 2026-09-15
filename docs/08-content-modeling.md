@@ -22,16 +22,17 @@ migration.
 |---|---|
 | `id` | Stable API key — **renaming it orphans existing data** |
 | `name` | Human label in the editor |
-| `type` | One of the 14 below |
+| `type` | One of the 15 below |
 | `localized` | Store as `{locale: value}` instead of a plain value |
 | `help_text` | Hint under the field |
 | `validations` | See [Validation](#validation) |
 | `allowed_content_types` | For references: which types may be linked |
+| `fields` | For `group`: the sub-schema each repeated item follows |
 
 `id` is what the Delivery API returns and what your templates read. `name` is
 cosmetic and safe to change at any time.
 
-## The 14 field types
+## The 15 field types
 
 | Type | Stores | Use for |
 |---|---|---|
@@ -49,10 +50,85 @@ cosmetic and safe to change at any time.
 | `reference_many` | UUID[] | Ordered links — **assemblies** |
 | `json` | object | Escape hatch for arbitrary structure |
 | `slug` | string | URL-safe identifier |
+| `group` | object[] | **Repeatable multifield** — see [Multi-field groups](#multi-field-groups) |
 
 `json` is deliberately last. It validates as "any object", so nothing in the
 editor or the API can help you with its contents — reach for it only when the
 shape genuinely varies.
+
+## Multi-field groups
+
+A `group` is a **repeatable container of sub-fields** — the same idea as an AEM
+multifield. Use it when a page needs "three to five slides, each with a heading
+and an image" and those slides are not worth managing as standalone entries.
+
+```json
+{
+  "id": "slides",
+  "name": "Slides",
+  "type": "group",
+  "validations": { "required": true, "min_items": 1, "max_items": 5 },
+  "fields": [
+    { "id": "heading", "name": "Heading", "type": "text",  "validations": { "required": true, "max_length": 60 } },
+    { "id": "image",   "name": "Image",   "type": "media", "validations": {} },
+    { "id": "link",    "name": "Link",    "type": "reference",
+      "allowed_content_types": ["card"], "validations": {} }
+  ]
+}
+```
+
+The stored value is an **array of objects** keyed by sub-field id:
+
+```json
+{ "slides": [
+    { "heading": "First",  "image": "9f2c…" },
+    { "heading": "Second", "link": "a1b2…" }
+]}
+```
+
+### Group vs `reference_many`
+
+Both express "several of these", and picking the wrong one is the usual
+modelling mistake:
+
+| | `group` | `reference_many` |
+|---|---|---|
+| Stored | Inline, inside the parent entry | As separate entries, linked by id |
+| Reusable elsewhere | No | Yes |
+| Translated independently | No — the group localizes as a whole | Yes, per entry |
+| Published independently | No | Yes |
+| Shows in the entries list | No | Yes |
+| Best for | Rows that only make sense here — slides, FAQ pairs, spec tables | Components shared across pages |
+
+Rule of thumb: if you'd ever want to find the item on its own, it's an entry.
+
+### Behaviour
+
+- **Order is content.** The array order is the render order; editors reorder
+  rows with the up/down controls.
+- **`min_items` / `max_items`** bound the number of rows.
+- **Validation is per row, and errors name the row** — a failed publish reports
+  `slides[2]: Field 'heading' must be at most 10 characters`, so an editor
+  knows which one to fix.
+- **References and media inside a group still resolve** at delivery, and their
+  `allowed_content_types` is still enforced.
+- **Nesting is allowed** (a group of sections, each containing a group of
+  cards), capped at 3 levels to stop a runaway schema.
+- **Sub-fields are not individually localizable.** Localize the group as a
+  whole — a locale map inside every row would make the delivered shape far
+  harder to consume.
+- A group with **no sub-fields** is a schema error, not an empty container.
+
+### Consuming it
+
+The content type ships with every delivery response, so a renderer can walk
+`field.fields` and handle rows generically — no per-content-type code:
+
+```tsx
+{entry.fields.slides?.map((row, i) => (
+  <Slide key={i} heading={row.heading} image={resolve(row.image)} />
+))}
+```
 
 ## Assemblies
 
