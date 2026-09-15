@@ -49,6 +49,9 @@ from app.schemas.auth import (
     SwitchAccountRequest,
     TokenPairResponse,
     TokenResponse,
+    ChangePasswordRequest,
+    SimpleOk,
+    UpdateProfileRequest,
     UserOut,
     UserRoleInfo,
     VerifyEmailRequest,
@@ -334,6 +337,8 @@ async def me(db: AsyncSession = Depends(get_db), actor: Actor = Depends(get_acto
         id=user.id,
         email=user.email,
         full_name=user.full_name,
+        email_verified=user.email_verified,
+        created_at=user.created_at,
         tenant_id=actor.tenant_id,
         roles=[
             UserRoleInfo(role_name=a.role.name, space_id=a.space_id)
@@ -349,3 +354,87 @@ async def me(db: AsyncSession = Depends(get_db), actor: Actor = Depends(get_acto
             for m, t in memberships
         ],
     )
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    payload: UpdateProfileRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: Actor = Depends(get_actor),
+):
+    """Update your OWN profile.
+
+    Distinct from PATCH /users/{id}, which is an admin action gated on
+    MANAGE_USERS — every user may edit their own display name, whatever their
+    role. Email is deliberately not editable here: changing it would need a
+    re-verification round trip through the mailer.
+    """
+    if actor.user is None:
+        raise HTTPException(status_code=403, detail="A user token is required")
+    actor.user.full_name = payload.full_name.strip()
+    record_audit(db, actor, "user.profile_update", "user", actor.user.id)
+    await db.commit()
+    await db.refresh(actor.user)
+    return await me(db=db, actor=actor)
+
+
+@router.post("/change-password", response_model=SimpleOk)
+async def change_password(
+    payload: ChangePasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: Actor = Depends(get_actor),
+):
+    """Change your password while signed in (proves knowledge of the current one).
+
+    The reset-password flow proves mailbox ownership instead; this one proves
+    session + password knowledge, so a stolen but unlocked session still can't
+    silently take over the account.
+
+    Every OTHER refresh token is revoked, so a password change kicks out
+    sessions on devices you no longer control. The caller's current access
+    token keeps working until it expires.
+    """
+    if actor.user is None:
+        raise HTTPException(status_code=403, detail="A user token is required")
+    user = actor.user
+    if not verify_password(payload.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if payload.current_password == payload.new_password:
+        raise HTTPException(status_code=400, detail="New password must be different")
+
+    user.hashed_password = hash_password(payload.new_password)
+    await _revoke_all_refresh_tokens(db, user.id)
+    record_audit(db, actor, "user.password_change", "user", user.id)
+    await db.commit()
+    return SimpleOk(detail="Password updated. Other sessions have been signed out.")
+
+
+@router.post("/sign-out-everywhere", response_model=SimpleOk)
+async def sign_out_everywhere(
+    db: AsyncSession = Depends(get_db),
+    actor: Actor = Depends(get_actor),
+):
+    """Revoke every refresh token for this user, on all devices and accounts."""
+    if actor.user is None:
+        raise HTTPException(status_code=403, detail="A user token is required")
+    count = await _revoke_all_refresh_tokens(db, actor.user.id)
+    record_audit(db, actor, "user.sign_out_everywhere", "user", actor.user.id)
+    await db.commit()
+    return SimpleOk(detail=f"Signed out of {count} session(s).")
+
+
+async def _revoke_all_refresh_tokens(db: AsyncSession, user_id: uuid.UUID) -> int:
+    """Mark every live refresh token for this user as revoked. Returns the count."""
+    rows = (
+        await db.execute(
+            select(RefreshToken).where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    now = datetime.now(timezone.utc)
+    for token in rows:
+        token.revoked_at = now
+    return len(rows)
+
