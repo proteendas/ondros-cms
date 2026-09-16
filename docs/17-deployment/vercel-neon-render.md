@@ -11,14 +11,14 @@ A complete, zero-cost hosted deployment — **no EC2, no credit card, no Docker
 host to babysit**. Follow the steps in order; the whole thing takes about
 45 minutes, most of it waiting on builds.
 
-| Piece | Goes to | Free tier reality |
-|---|---|---|
-| `backend/` — FastAPI (management + delivery APIs, AI, webhooks, WebSockets) | **Render** web service (Docker) | Sleeps after ~15 min idle; first request after sleep takes 30–60 s |
-| Postgres + pgvector | **Neon** | ~0.5 GB storage, autosuspends when idle |
-| `editor/` — Next.js visual editor | **Vercel** project #1 | Full Next.js support, auto-deploys on push |
-| `preview/` — Next.js demo site | **Vercel** project #2 (optional) | Your real site usually replaces this |
-| `superadmin/` — Next.js operator dashboard | **Vercel** project #3 (optional) | |
-| Uploaded media | Render's disk by default | **Ephemeral** — wiped on every deploy. See [§ Media storage](#media-storage-the-one-real-gap) |
+| Piece                                                                          | Goes to                                | Free tier reality                                                                                    |
+| ------------------------------------------------------------------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `backend/` — FastAPI (management + delivery APIs, AI, webhooks, WebSockets) | **Render** web service (Docker)  | Sleeps after ~15 min idle; first request after sleep takes 30–60 s                                  |
+| Postgres + pgvector                                                            | **Neon**                         | ~0.5 GB storage, autosuspends when idle                                                              |
+| `editor/` — Next.js visual editor                                           | **Vercel** project #1            | Full Next.js support, auto-deploys on push                                                           |
+| `preview/` — Next.js demo site                                              | **Vercel** project #2 (optional) | Your real site usually replaces this                                                                 |
+| `superadmin/` — Next.js operator dashboard                                  | **Vercel** project #3 (optional) |                                                                                                      |
+| Uploaded media                                                                 | Render's disk by default               | **Ephemeral** — wiped on every deploy. See [§ Media storage](#media-storage-the-one-real-gap) |
 
 > Prefer alternatives? Supabase swaps in for Neon (enable the `vector`
 > extension in Database → Extensions) and Railway for Render (same Docker
@@ -72,13 +72,13 @@ flowchart TD
     style VERCEL fill:#000,color:#fff
 ```
 
-| Variable | Where you set it | Never set it here |
-|---|---|---|
-| `DATABASE_URL` | **Render** → your service → Environment | Vercel — the frontends never connect to Postgres. Putting a DB URL in a Vercel project (especially a `NEXT_PUBLIC_*` one) would publish your credentials in the browser bundle. |
-| `JWT_SECRET`, `AI_API_KEY`, `SMTP_*`, OAuth secrets | **Render** | Vercel, and never committed to git |
-| `CORS_ORIGINS`, `FRONTEND_URL`, `BACKEND_URL` | **Render** | — |
-| `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_*` | **Vercel** (per project) | Render. These are inlined into the browser bundle, so they must never hold a secret. |
-| `CMS_API_URL`, `CMS_DELIVERY_TOKEN`, `CMS_PREVIEW_TOKEN` | **Vercel** (preview project) | These are server-side only — note the deliberate absence of `NEXT_PUBLIC_` |
+| Variable                                                       | Where you set it                                | Never set it here                                                                                                                                                                 |
+| -------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                               | **Render** → your service → Environment | Vercel — the frontends never connect to Postgres. Putting a DB URL in a Vercel project (especially a`NEXT_PUBLIC_*` one) would publish your credentials in the browser bundle. |
+| `JWT_SECRET`, `AI_API_KEY`, `SMTP_*`, OAuth secrets      | **Render**                                | Vercel, and never committed to git                                                                                                                                                |
+| `CORS_ORIGINS`, `FRONTEND_URL`, `BACKEND_URL`            | **Render**                                | —                                                                                                                                                                                |
+| `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_*`                     | **Vercel** (per project)                  | Render. These are inlined into the browser bundle, so they must never hold a secret.                                                                                              |
+| `CMS_API_URL`, `CMS_DELIVERY_TOKEN`, `CMS_PREVIEW_TOKEN` | **Vercel** (preview project)              | These are server-side only — note the deliberate absence of`NEXT_PUBLIC_`                                                                                                      |
 
 ### Setting `DATABASE_URL` on Render, step by step
 
@@ -151,21 +151,28 @@ it to your own GitHub account) first. Every step below points at your fork.
    round trips dominate response time on free tiers.
 2. Enable pgvector (needed for AI guideline embeddings). In Neon's **SQL
    Editor**:
+
    ```sql
    CREATE EXTENSION IF NOT EXISTS vector;
    ```
+
    The app also runs this itself at boot, but doing it now surfaces permission
    problems before they look like backend crashes.
 3. Copy the connection string and **convert it for asyncpg**. Neon hands you
    something like:
+
    ```
    postgresql://user:pass@ep-cool-name-123456.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
    ```
+
    You need:
+
    ```
    postgresql+asyncpg://user:pass@ep-cool-name-123456.us-east-2.aws.neon.tech/neondb
    ```
+
    Two edits, both mandatory:
+
    - scheme `postgresql://` → **`postgresql+asyncpg://`**
    - **delete the entire `?…` query string**
 
@@ -175,7 +182,7 @@ it to your own GitHub account) first. Every step below points at your fork.
    > `TypeError: connect() got an unexpected keyword argument 'sslmode'` at
    > startup — the backend boot-loops with no other explanation. TLS still
    > happens; asyncpg negotiates it automatically against Neon.
-
+   >
 4. **Use the direct (unpooled) endpoint**, not the `-pooler` one. Neon's pooler
    runs PgBouncer in transaction mode, which breaks the prepared statements
    SQLAlchemy's asyncpg driver relies on. You're running a single free Render
@@ -207,18 +214,18 @@ runtime requires.
 
 ### Backend environment variables
 
-| Var | Value | Notes |
-|---|---|---|
-| `DATABASE_URL` | the converted asyncpg URL from step 2 | |
-| `JWT_SECRET` | `openssl rand -hex 32` | Never reuse the dev default |
-| `BACKEND_URL` | `https://<your-api>.onrender.com` | Fill in after the first deploy names the service |
-| `FRONTEND_URL` | `https://<editor>.vercel.app` | Placeholder now, real value in step 5 |
-| `CORS_ORIGINS` | `https://<editor>.vercel.app` | Comma-separated, **no trailing slashes**, real value in step 5 |
-| `AUTH_DEV_MODE` | `false` | **Important** — `true` returns verification/reset tokens in API responses, letting anyone verify any address |
-| `BILLING_DEV_MODE` | `true` | Allows plan switching without Stripe keys |
-| `AI_PROVIDER` | empty, or `groq` / `gemini` | Empty = AI endpoints return 503, everything else works |
-| `AI_API_KEY` | provider key | [console.groq.com](https://console.groq.com) or [aistudio.google.com](https://aistudio.google.com/apikey) |
-| `EMBEDDING_DIM` | `768` **only** for Gemini/Ollama | Must be set **before the first guideline ingest** — the vector column is sized once |
+| Var                  | Value                                    | Notes                                                                                                                 |
+| -------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`     | the converted asyncpg URL from step 2    |                                                                                                                       |
+| `JWT_SECRET`       | `openssl rand -hex 32`                 | Never reuse the dev default                                                                                           |
+| `BACKEND_URL`      | `https://<your-api>.onrender.com`      | Fill in after the first deploy names the service                                                                      |
+| `FRONTEND_URL`     | `https://<editor>.vercel.app`          | Placeholder now, real value in step 5                                                                                 |
+| `CORS_ORIGINS`     | `https://<editor>.vercel.app`          | Comma-separated,**no trailing slashes**, real value in step 5                                                   |
+| `AUTH_DEV_MODE`    | `false`                                | **Important** — `true` returns verification/reset tokens in API responses, letting anyone verify any address |
+| `BILLING_DEV_MODE` | `true`                                 | Allows plan switching without Stripe keys                                                                             |
+| `AI_PROVIDER`      | empty, or`groq` / `gemini`           | Empty = AI endpoints return 503, everything else works                                                                |
+| `AI_API_KEY`       | provider key                             | [console.groq.com](https://console.groq.com) or [aistudio.google.com](https://aistudio.google.com/apikey)               |
+| `EMBEDDING_DIM`    | `768` **only** for Gemini/Ollama | Must be set**before the first guideline ingest** — the vector column is sized once                             |
 
 `.env.example` documents every remaining option.
 
@@ -267,27 +274,27 @@ build/output settings alone.
 
 **Project 1 — `editor/`** (the main app)
 
-| Var | Value |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | `https://<your-api>.onrender.com` |
-| `NEXT_PUBLIC_PREVIEW_URL` | `https://<preview>.vercel.app` (optional) |
-| `NEXT_PUBLIC_PREVIEW_TOKEN` | a `cms_pre_…` key you create in the UI later (optional) |
+| Var                           | Value                                                     |
+| ----------------------------- | --------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`       | `https://<your-api>.onrender.com`                       |
+| `NEXT_PUBLIC_PREVIEW_URL`   | `https://<preview>.vercel.app` (optional)               |
+| `NEXT_PUBLIC_PREVIEW_TOKEN` | a`cms_pre_…` key you create in the UI later (optional) |
 
 **Project 2 — `preview/`** (optional demo site)
 
-| Var | Value |
-|---|---|
-| `CMS_API_URL` | `https://<your-api>.onrender.com` (server-side fetches) |
-| `NEXT_PUBLIC_API_URL` | `https://<your-api>.onrender.com` (browser WS + media) |
-| `CMS_DELIVERY_TOKEN` | a `cms_del_…` key from the editor UI |
-| `CMS_PREVIEW_TOKEN` | a `cms_pre_…` key from the editor UI |
+| Var                     | Value                                                     |
+| ----------------------- | --------------------------------------------------------- |
+| `CMS_API_URL`         | `https://<your-api>.onrender.com` (server-side fetches) |
+| `NEXT_PUBLIC_API_URL` | `https://<your-api>.onrender.com` (browser WS + media)  |
+| `CMS_DELIVERY_TOKEN`  | a`cms_del_…` key from the editor UI                    |
+| `CMS_PREVIEW_TOKEN`   | a`cms_pre_…` key from the editor UI                    |
 
 **Project 3 — `superadmin/`** (optional operator dashboard)
 
-| Var | Value |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | `https://<your-api>.onrender.com` |
-| `NEXT_PUBLIC_EDITOR_URL` | `https://<editor>.vercel.app` |
+| Var                        | Value                               |
+| -------------------------- | ----------------------------------- |
+| `NEXT_PUBLIC_API_URL`    | `https://<your-api>.onrender.com` |
+| `NEXT_PUBLIC_EDITOR_URL` | `https://<editor>.vercel.app`     |
 
 > **`NEXT_PUBLIC_*` values are inlined into the client bundle at build time.**
 > Changing one in the Vercel dashboard does nothing until you **redeploy** that
@@ -319,9 +326,9 @@ spaces. Save — Render restarts the service automatically.
 
 In the **`ondros-cms-site`** repo's own Vercel project:
 
-| Var | Value |
-|---|---|
-| `NEXT_PUBLIC_APP_LOGIN_URL` | `https://<editor>.vercel.app/login` |
+| Var                            | Value                                  |
+| ------------------------------ | -------------------------------------- |
+| `NEXT_PUBLIC_APP_LOGIN_URL`  | `https://<editor>.vercel.app/login`  |
 | `NEXT_PUBLIC_APP_SIGNUP_URL` | `https://<editor>.vercel.app/signup` |
 
 Redeploy that project afterwards (same build-time inlining rule).
@@ -429,16 +436,17 @@ safe on a database the app has already booted against.
 
 ## Troubleshooting
 
-| Symptom | Cause |
-|---|---|
-| Backend boot-loops, logs show `connect() got an unexpected keyword argument 'sslmode'` | The `?sslmode=…` query string is still on `DATABASE_URL` (step 2) |
-| `failed to read dockerfile: open Dockerfile: no such file or directory` | Render's Root Directory isn't `backend` (step 3) |
-| Login does nothing; devtools shows a CORS error | `CORS_ORIGINS` missing the editor's exact origin, or has a trailing slash (step 5) |
-| Editor still calls `localhost:8000` | `NEXT_PUBLIC_API_URL` changed but the Vercel project wasn't redeployed (step 4) |
-| First request hangs ~60 s, then works | Normal free-tier cold start |
-| Signup succeeds but no verification email | No SMTP configured — the link is in Render's logs (step 3) |
-| `prepared statement "__asyncpg_…" does not exist` | You used Neon's `-pooler` endpoint; switch to the direct one (step 2) |
-| Images 404 after a deploy | Ephemeral disk — see [§ Media storage](#media-storage-the-one-real-gap) |
+| Symptom                                                                                 | Cause                                                                                |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Backend boot-loops, logs show`connect() got an unexpected keyword argument 'sslmode'` | The`?sslmode=…` query string is still on `DATABASE_URL` (step 2)                |
+| `failed to read dockerfile: open Dockerfile: no such file or directory`               | Render's Root Directory isn't`backend` (step 3)                                    |
+| Login does nothing; devtools shows a CORS error                                         | `CORS_ORIGINS` missing the editor's exact origin, or has a trailing slash (step 5) |
+| Editor still calls`localhost:8000`                                                    | `NEXT_PUBLIC_API_URL` changed but the Vercel project wasn't redeployed (step 4)    |
+| First request hangs ~60 s, then works                                                   | Normal free-tier cold start                                                          |
+| Signup succeeds but no verification email                                               | No SMTP configured — the link is in Render's logs (step 3)                          |
+| `prepared statement "__asyncpg_…" does not exist`                                    | You used Neon's`-pooler` endpoint; switch to the direct one (step 2)               |
+| Images 404 after a deploy                                                               | Ephemeral disk — see[§ Media storage](#media-storage-the-one-real-gap)              |
+| `Received HTTP code 400 from control plane: insecure password`                         | Old build: startup created an RLS role with a weak password. Redeploy from `main`, or leave `DB_APP_ROLE_PASSWORD` unset |
 
 ---
 
@@ -452,11 +460,11 @@ docker compose up --build -d     # db + backend + editor + preview + superadmin
 docker compose exec backend python -m app.seed
 ```
 
-| Service | URL |
-|---|---|
-| Editor | http://localhost:3000 |
-| Preview site | http://localhost:3001 |
-| Superadmin | http://localhost:3003 |
+| Service       | URL                        |
+| ------------- | -------------------------- |
+| Editor        | http://localhost:3000      |
+| Preview site  | http://localhost:3001      |
+| Superadmin    | http://localhost:3003      |
 | API / Swagger | http://localhost:8000/docs |
 
 Logins: `admin@example.com/admin123` (org admin),

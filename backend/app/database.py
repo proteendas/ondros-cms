@@ -22,7 +22,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    from app.migrations import run_dev_migrations
+    from app.migrations import run_app_role_setup, run_dev_migrations
     from app.models import Base  # imported here so all models are registered
 
     async with engine.begin() as conn:
@@ -31,3 +31,8 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
         # Upgrade databases created by older versions of this schema in place.
         await run_dev_migrations(conn)
+
+    # Role DDL runs on its own after the schema is safely committed: managed
+    # providers can reject it at COMMIT, which would otherwise roll all of the
+    # above back. Opt-in via DB_APP_ROLE_PASSWORD.
+    await run_app_role_setup(engine)

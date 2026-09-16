@@ -13,8 +13,11 @@ Every statement is safe to re-run. For real production deployments, replace
 this module (and init_db's create_all) with Alembic.
 """
 import logging
+import re
 
-from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +68,7 @@ _RLS_TABLES = [
 ]
 
 RLS_STATEMENTS = (
-    ["DO $$ BEGIN CREATE ROLE cms_app LOGIN PASSWORD 'cms_app'; EXCEPTION WHEN duplicate_object THEN NULL; END $$"]
-    + ["GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO cms_app"]
-    + [f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY" for t in _RLS_TABLES]
+    [f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY" for t in _RLS_TABLES]
     + [
         f"DO $$ BEGIN CREATE POLICY tenant_isolation ON {t} "
         f"USING (tenant_id::text = current_setting('app.current_account_id', true)); "
@@ -75,7 +76,6 @@ RLS_STATEMENTS = (
         for t in _RLS_TABLES
     ]
 )
-
 # Backfills run after DDL. Each is independent and idempotent.
 BACKFILL_STATEMENTS = [
     # One "master" environment per space that has none yet.
@@ -131,6 +131,60 @@ BACKFILL_STATEMENTS = [
     WHERE NOT EXISTS (SELECT 1 FROM locales l WHERE l.space_id = s.id)
     """,
 ]
+
+
+_SAFE_IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def app_role_statements() -> list[str]:
+    """DDL that provisions the non-owner `cms_app` login used to activate RLS.
+
+    Opt-in: it only runs when DB_APP_ROLE_PASSWORD is set, because creating a
+    LOGIN role is *not* ordinary DDL on managed Postgres. Neon intercepts
+    CREATE/ALTER ROLE and forwards it to its control plane, which enforces a
+    password policy and reports a failure at COMMIT — too late for the
+    per-statement SAVEPOINT in run_dev_migrations to contain it, so a weak password there took
+    down the whole init_db transaction (and with it app startup).
+
+    Nothing connects as this role yet; it exists so an operator can point
+    DATABASE_URL at it to make the tenant_isolation policies bite.
+    """
+    settings = get_settings()
+    password = settings.db_app_role_password
+    if not password:
+        return []
+    role = settings.db_app_role
+    if not _SAFE_IDENT.fullmatch(role):
+        logger.warning("DB_APP_ROLE %r is not a plain identifier; skipping role setup", role)
+        return []
+    # Role DDL takes no bind parameters, so the password is interpolated as a
+    # SQL literal — refuse the two characters that could break out of it.
+    if "'" in password or "\\" in password:
+        logger.warning("DB_APP_ROLE_PASSWORD may not contain quotes or backslashes; skipping role setup")
+        return []
+    return [
+        f"DO $$ BEGIN CREATE ROLE {role} LOGIN PASSWORD '{password}'; "
+        f"EXCEPTION WHEN duplicate_object THEN NULL; END $$",
+        f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {role}",
+    ]
+
+
+async def run_app_role_setup(engine: AsyncEngine) -> None:
+    """Provision the RLS login role, each statement in its own transaction.
+
+    Deliberately *not* part of `run_dev_migrations`' transaction: a managed
+    provider can reject role DDL when the surrounding transaction commits, and
+    that rollback would take the schema with it. Here the worst case is a
+    logged warning.
+    """
+    from sqlalchemy import text
+
+    for stmt in app_role_statements():
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(stmt))
+        except Exception as exc:  # noqa: BLE001 - never block startup on role setup
+            logger.warning("App role setup statement skipped: %s", exc)
 
 
 async def run_dev_migrations(conn: AsyncConnection) -> None:

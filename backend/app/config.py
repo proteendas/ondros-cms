@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     app_name: str = "Ondros CMS"
     database_url: str = "postgresql+asyncpg://cms:cms@localhost:5432/cms"
 
+    # Optional non-owner Postgres login that activates the RLS policies (spec
+    # 001). Left blank, startup creates no role at all — set a *strong*
+    # password to opt in, then point DATABASE_URL at the role. Managed
+    # providers (Neon, Supabase, RDS) enforce their own password policy and
+    # reject weak ones, so this is never defaulted.
+    db_app_role: str = "cms_app"
+    db_app_role_password: str = ""
+
     # Auth
     jwt_secret: str = "dev-jwt-secret-change-me"
     jwt_algorithm: str = "HS256"
