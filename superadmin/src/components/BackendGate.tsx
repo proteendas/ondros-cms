@@ -16,6 +16,14 @@ import { useEffect, useState } from 'react';
 
 import { API_URL } from '@/lib/api';
 
+/**
+ * How long the probe gets before we show anything at all. A warm API answers
+ * /health in tens of milliseconds, well inside this, so the skeleton is never
+ * rendered and the app boots straight into its normal flow. Only a backend
+ * that is actually asleep misses this window and gets the shimmer.
+ */
+const GRACE_MS = 600;
+
 /** A sleeping service accepts the socket then stalls, so cap each attempt. */
 const ATTEMPT_TIMEOUT_MS = 8000;
 const RETRY_DELAY_MS = 1500;
@@ -26,14 +34,28 @@ const EXPLAIN_AFTER_MS = 2500;
  *  rejects — and looks identical to a slow boot unless we say so. */
 const SUSPECT_AFTER_MS = 75000;
 
+/**
+ * probing — waiting on the first answer, showing nothing yet
+ * waking  — the probe missed the grace window, so the API really is cold
+ * ready   — /health answered; children own the screen from here
+ */
+type Phase = 'probing' | 'waking' | 'ready';
+
 export default function BackendGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [ready, setReady] = useState(false);
+  const [phase, setPhase] = useState<Phase>('probing');
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     const started = Date.now();
+
+    // Promote to the skeleton only if the probe is still outstanding. Losing
+    // this race is the whole point: a live API resolves first and nobody ever
+    // sees a placeholder.
+    const grace = setTimeout(() => {
+      if (!cancelled) setPhase((ph) => (ph === 'probing' ? 'waking' : ph));
+    }, GRACE_MS);
 
     const ticker = setInterval(() => {
       if (!cancelled) setElapsed(Math.floor((Date.now() - started) / 1000));
@@ -49,7 +71,7 @@ export default function BackendGate({ children }: { children: React.ReactNode })
             cache: 'no-store',
           });
           if (res.ok) {
-            if (!cancelled) setReady(true);
+            if (!cancelled) setPhase('ready');
             return;
           }
         } catch {
@@ -65,11 +87,15 @@ export default function BackendGate({ children }: { children: React.ReactNode })
     void poll();
     return () => {
       cancelled = true;
+      clearTimeout(grace);
       clearInterval(ticker);
     };
   }, []);
 
-  if (ready) return <>{children}</>;
+  if (phase === 'ready') return <>{children}</>;
+  // Nothing during the probe. Under GRACE_MS this is imperceptible, and it
+  // beats a skeleton that appears for one frame and vanishes.
+  if (phase === 'probing') return null;
 
   const explain = elapsed * 1000 >= EXPLAIN_AFTER_MS;
   const suspect = elapsed * 1000 >= SUSPECT_AFTER_MS;
