@@ -118,7 +118,7 @@ async def request_logging(request: Request, call_next):
             content={"detail": "Internal server error", "request_id": request_id},
         )
     duration_ms = int((time.monotonic() - started) * 1000)
-    if not request.url.path.startswith(("/files", "/health")):
+    if not request.url.path.startswith(("/files", "/health", "/readyz")):
         logger.info(
             "[%s] %s %s -> %s (%dms)",
             request_id, request.method, request.url.path, response.status_code, duration_ms,
@@ -151,4 +151,17 @@ app.mount("/files", StaticFiles(directory=settings.media_root, check_dir=False),
 
 @app.get("/health")
 async def health():
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+async def readyz():
+    """Identical to /health, for the browser-side cold-start probe.
+
+    /health has to stay — it is render.yaml's healthCheckPath — but it is a
+    common enough path that ad-blocker filter lists match on it, and a blocked
+    request (ERR_BLOCKED_BY_CLIENT) is indistinguishable from a sleeping
+    service. The frontends probe this name instead, which no filter list
+    targets. Keep both: infrastructure uses /health, browsers use /readyz.
+    """
     return {"status": "ok"}

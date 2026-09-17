@@ -1,20 +1,30 @@
 'use client';
 
 /**
- * Holds the admin app behind a shimmer until the API answers /health.
+ * Shows a shimmer while the API cold-starts — and gets out of the way otherwise.
  *
  * Same backend as the editor, so the same Render free-tier cold start applies:
  * without this, Shell's /platform/me call hangs and its "Checking access…"
- * line sits there for a minute — or worse, the fetch fails and the operator is
- * bounced to /login as if their session had expired.
+ * line sits there for a minute — or the fetch fails and the operator is bounced
+ * to /login as if their session had expired.
+ *
+ * Two rules keep it from becoming a liability:
+ *
+ *   1. It never shows anything unless the probe misses GRACE_MS. A warm API
+ *      wins that race, so the normal flow is completely unaffected.
+ *   2. It FAILS OPEN. The probe is a convenience, not an authorization check.
+ *      If it can't get a verdict — blocked by a browser extension, a CORS
+ *      mismatch, a wrong NEXT_PUBLIC_API_URL — the gate opens anyway and lets
+ *      the app's own requests report real errors in context. Blocking the
+ *      whole UI behind a probe that itself is broken only turns a warning into
+ *      an outage.
  *
  * Every route here needs the API (there are no static pages), so unlike the
- * editor's gate there's nothing to exempt.
+ * editor's gate there is nothing to exempt.
  */
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import Icon from '@/components/Icon';
 import { API_URL } from '@/lib/api';
 
 /**
@@ -25,68 +35,70 @@ import { API_URL } from '@/lib/api';
  */
 const GRACE_MS = 600;
 
-/** A sleeping service accepts the socket then stalls, so cap each attempt. */
+/** Twin of /health (which render.yaml needs and ad blockers match on). */
+const PROBE_PATH = '/readyz';
+
+/** Per-attempt ceiling. A sleeping service accepts the socket and then just
+ *  sits there, so without this the first fetch can hang past the cold start. */
 const ATTEMPT_TIMEOUT_MS = 8000;
 const RETRY_DELAY_MS = 1500;
-/** A warm backend answers well under this; below it, stay quiet. */
+
+/** Below this, say nothing — a warm backend answers in well under a second and
+ *  a flashed "waking up" message would be noise. */
 const EXPLAIN_AFTER_MS = 2500;
 
 /**
- * A request that is *blocked* — CORS, an extension, an unresolvable host,
- * mixed content — rejects within a few milliseconds. A sleeping service
- * instead holds the connection open until our own abort fires. So a rejection
- * this fast is evidence of a misconfiguration, not a cold start, and retrying
- * it forever only hides the real problem.
+ * A *blocked* request — an extension, CORS, mixed content, a bad host —
+ * rejects within a few milliseconds. A sleeping service instead holds the
+ * connection until our own abort fires. So a rejection this fast means the
+ * probe itself is broken, not that the API is cold: stop probing and open.
  */
 const FAST_FAILURE_MS = 1500;
 const FAST_FAILURE_LIMIT = 3;
 
 /** Statuses that really mean "still coming up" — Render's router serves these
- *  while it boots the container. Any other status is a readable answer from
- *  *something*, just not from this API, and retrying will not change it. */
+ *  while it boots the container. Anything else is a readable answer from
+ *  something that isn't this API, and retrying won't change it. */
 const BOOTING_STATUSES = [502, 503, 504];
 
-/** Hard ceiling. Past this even a free-tier cold start has failed, so say so
- *  instead of shimmering indefinitely. */
+/** Hard ceiling: past this, even a free-tier cold start has failed. */
 const GIVE_UP_AFTER_MS = 90000;
 
 /**
  * probing — waiting on the first answer, showing nothing yet
  * waking  — the probe missed the grace window, so the API really is cold
- * failed  — we reached a verdict: this will not come good on its own
- * ready   — /health answered; children own the screen from here
+ * ready   — open; children own the screen from here
  */
-type Phase = 'probing' | 'waking' | 'failed' | 'ready';
+type Phase = 'probing' | 'waking' | 'ready';
 
 export default function BackendGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
   const [phase, setPhase] = useState<Phase>('probing');
   const [elapsed, setElapsed] = useState(0);
-  const [diagnosis, setDiagnosis] = useState('');
-  // Bumped by the Try again button to re-run the probe from scratch.
-  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     let fastFailures = 0;
     const started = Date.now();
-    const origin = window.location.origin;
 
     // Promote to the skeleton only if the probe is still outstanding. Losing
     // this race is the whole point: a live API resolves first and nobody ever
     // sees a placeholder.
     const grace = setTimeout(() => {
-      if (!cancelled) setPhase((ph) => (ph === 'probing' ? 'waking' : ph));
+      if (!cancelled) setPhase((p) => (p === 'probing' ? 'waking' : p));
     }, GRACE_MS);
 
     const ticker = setInterval(() => {
       if (!cancelled) setElapsed(Math.floor((Date.now() - started) / 1000));
     }, 500);
 
-    function giveUp(message: string) {
+    /** Let the app through. `reason` is set when we never got a clean 200. */
+    function openGate(reason?: string) {
       if (cancelled) return;
-      setDiagnosis(message);
-      setPhase('failed');
+      // eslint-disable-next-line no-console
+      if (reason) console.warn(`[BackendGate] ${reason}`);
+      setPhase('ready');
     }
 
     async function poll() {
@@ -95,35 +107,36 @@ export default function BackendGate({ children }: { children: React.ReactNode })
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
         try {
-          const res = await fetch(`${API_URL}/health`, {
+          // /readyz, not /health: ad-blocker filter lists match on the latter
+          // and answer with ERR_BLOCKED_BY_CLIENT, which looks exactly like a
+          // sleeping service. A bare GET with no custom headers and no `cache`
+          // option keeps it a "simple" CORS request — no preflight to satisfy —
+          // and the query param busts the HTTP cache in place of 'no-store'.
+          const res = await fetch(`${API_URL}${PROBE_PATH}?probe=${Date.now()}`, {
             signal: controller.signal,
-            cache: 'no-store',
           });
           if (res.ok) {
-            if (!cancelled) setPhase('ready');
+            openGate();
             return;
           }
           if (!BOOTING_STATUSES.includes(res.status)) {
-            giveUp(
-              `${API_URL}/health answered ${res.status}. That is a reply from ` +
-                `something other than this API — check NEXT_PUBLIC_API_URL. An ` +
-                `invisible character in it makes the browser treat the value as a ` +
-                `relative path and request ${origin} instead.`,
+            openGate(
+              `${API_URL}${PROBE_PATH} answered ${res.status}, which is not this API. ` +
+                `Check NEXT_PUBLIC_API_URL. Continuing without the cold-start gate.`,
             );
             return;
           }
           fastFailures = 0; // a 503 is a genuine "booting" signal
         } catch {
           if (Date.now() - attemptStarted < FAST_FAILURE_MS) fastFailures += 1;
-          else fastFailures = 0; // timed out, which is consistent with a cold start
+          else fastFailures = 0; // timed out, consistent with a cold start
           if (fastFailures >= FAST_FAILURE_LIMIT) {
-            giveUp(
-              `The browser refused to send the request to ${API_URL}. It failed ` +
-                `instantly rather than timing out, so the API being asleep is not ` +
-                `the cause. Open DevTools › Network › health for the reason — the ` +
-                `usual ones are an ad-blocking or privacy extension ` +
-                `(ERR_BLOCKED_BY_CLIENT), ${origin} missing from the API's ` +
-                `CORS_ORIGINS, or a wrong NEXT_PUBLIC_API_URL.`,
+            openGate(
+              `Could not probe ${API_URL}${PROBE_PATH} from ${window.location.origin} — ` +
+                `it failed instantly rather than timing out, so something is ` +
+                `blocking it (a browser extension, CORS, or a wrong ` +
+                `NEXT_PUBLIC_API_URL) rather than the API being asleep. ` +
+                `Continuing without the cold-start gate.`,
             );
             return;
           }
@@ -132,11 +145,9 @@ export default function BackendGate({ children }: { children: React.ReactNode })
         }
         if (cancelled) return;
         if (Date.now() - started > GIVE_UP_AFTER_MS) {
-          giveUp(
-            `No answer from ${API_URL} after ${Math.round(
-              (Date.now() - started) / 1000,
-            )}s. That is well past a free-tier cold start, so check the service is ` +
-              `deployed and look at DevTools › Network › health for the failure.`,
+          openGate(
+            `No answer from ${API_URL}${PROBE_PATH} after ` +
+              `${Math.round((Date.now() - started) / 1000)}s. Continuing anyway.`,
           );
           return;
         }
@@ -150,48 +161,20 @@ export default function BackendGate({ children }: { children: React.ReactNode })
       clearTimeout(grace);
       clearInterval(ticker);
     };
-  }, [attempt]);
-
-  function retry() {
-    setDiagnosis('');
-    setElapsed(0);
-    setPhase('probing');
-    setAttempt((n) => n + 1);
-  }
+  }, []);
 
   if (phase === 'ready') return <>{children}</>;
   // Nothing during the probe. Under GRACE_MS this is imperceptible, and it
   // beats a skeleton that appears for one frame and vanishes.
   if (phase === 'probing') return null;
 
-  if (phase === 'failed') {
-    return (
-      <div className="login-wrap">
-        <div className="login-card">
-          <h1 style={{ fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="warning" size={16} /> Can&apos;t reach the API
-          </h1>
-          <p className="muted small" style={{ marginBottom: 16 }}>{diagnosis}</p>
-          <button
-            className="btn secondary small"
-            onClick={retry}
-            style={{ justifyContent: 'center' }}
-          >
-            <Icon name="reload" size={13} /> Try again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const explain = elapsed * 1000 >= EXPLAIN_AFTER_MS;
-
   return (
     <div aria-busy="true">
       {pathname.startsWith('/login') ? <LoginSkeleton /> : <ShellSkeleton />}
       {/* One polite announcement, and only once it's worth explaining. */}
       <p role="status" aria-live="polite" className="gate-note">
-        {explain ? (          <>Waking up the API — free-tier instances sleep when idle. {elapsed}s</>) : ''}
+        {explain ? <>Waking up the API — free-tier instances sleep when idle. {elapsed}s</> : ''}
       </p>
     </div>
   );
@@ -206,6 +189,7 @@ function Bar({ w, h = 12, r }: { w: string | number; h?: number; r?: number }) {
   );
 }
 
+/** Shaped like .login-card so the real form doesn't jump when it arrives. */
 function LoginSkeleton() {
   return (
     <div className="login-wrap">
