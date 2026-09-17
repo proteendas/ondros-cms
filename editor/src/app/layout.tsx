@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 
 import AppShell from '@/components/AppShell';
+import BackendGate from '@/components/BackendGate';
 import { ToastProvider } from '@/components/ui';
 import { BRAND } from '@/lib/brand';
 import { WorkspaceProvider } from '@/lib/workspace';
@@ -53,11 +54,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
-        <WorkspaceProvider>
-          <ToastProvider>
-            <AppShell>{children}</AppShell>
-          </ToastProvider>
-        </WorkspaceProvider>
+        {/* Outermost on purpose — nothing below it fires an API call until the
+            backend answers /health (Render free tier cold-starts for ~30-60s). */}
+        <BackendGate>
+          <WorkspaceProvider>
+            <ToastProvider>
+              <AppShell>{children}</AppShell>
+            </ToastProvider>
+          </WorkspaceProvider>
+        </BackendGate>
       </body>
     </html>
   );

@@ -6,6 +6,8 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 
 import './globals.css';
 
+import BackendGate from '@/components/BackendGate';
+
 // Brand typography — matches the marketing site (ondros-cms-site): Plus Jakarta
 // Sans for UI, JetBrains Mono for code/ids. The woff2 files are vendored in
 // ./fonts (see its README) and loaded with next/font/local, so the build is
@@ -50,7 +52,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {/* Shared backend with the editor, so the same free-tier cold start
+            applies: shimmer until /health answers. */}
+        <BackendGate>{children}</BackendGate>
+      </body>
     </html>
   );
 }

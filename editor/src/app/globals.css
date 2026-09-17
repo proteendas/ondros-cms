@@ -618,6 +618,20 @@ table.list td.actions { text-align: right; white-space: nowrap; }
 .skeleton { background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
+/* Cold-start gate (components/BackendGate.tsx): the shimmering stand-in shown
+   while Render wakes the API up. */
+.gate-note {
+  position: fixed; bottom: 16px; left: 0; right: 0; margin: 0; padding: 0 16px;
+  text-align: center; font-size: 12px; color: var(--text-3);
+  pointer-events: none; min-height: 18px;
+}
+.gate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+
+/* Respect a reduced-motion preference: keep the placeholder, drop the sweep. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background: var(--surface-2); }
+}
+
 .toast-wrap { position: fixed; bottom: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
 .toast {
   background: var(--chrome); color: #fff; border-radius: 8px;

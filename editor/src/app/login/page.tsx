@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import Icon from '@/components/ui/Icon';
 import LegalFooter from '@/components/ui/LegalFooter';
 import PasswordInput from '@/components/ui/PasswordInput';
+import ResendVerification from '@/components/ResendVerification';
 import { API_URL, api, login, setTokens } from '@/lib/api';
 import { BRAND } from '@/lib/brand';
 
@@ -22,6 +23,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sso, setSso] = useState<SsoLookup | null>(null);
+  // Set when login fails with email_unverified — unlocks the resend control.
+  const [unverified, setUnverified] = useState<string | null>(null);
   const [social, setSocial] = useState<{ google: boolean; microsoft: boolean; github: boolean }>({
     google: false,
     microsoft: false,
@@ -74,9 +77,11 @@ export default function LoginPage() {
         return;
       }
       if (detail?.code === 'email_unverified') {
-        setError('Verify your email first — check your inbox (or the backend logs in dev mode).');
+        setError('Verify your email before signing in — check your inbox.');
+        setUnverified(email);
       } else {
         setError(err instanceof Error ? err.message : 'Login failed');
+        setUnverified(null);
       }
       setBusy(false);
     }
@@ -143,6 +148,7 @@ export default function LoginPage() {
           autoComplete="current-password"
         />
         {error && <p className="error-text" style={{ marginTop: 10 }}>{error}</p>}
+        {unverified && <ResendVerification email={unverified} />}
         <button className="btn" disabled={busy} style={{ width: '100%', marginTop: 18, justifyContent: 'center' }}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>

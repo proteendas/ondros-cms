@@ -43,6 +43,19 @@ class VerifyEmailRequest(BaseModel):
     token: str
 
 
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class ResendVerificationResponse(BaseModel):
+    message: str
+    # Seconds the client must wait before the button is live again. Drives the
+    # visible countdown, and is authoritative: the client's own timer is only a
+    # display, the server re-checks on every call.
+    retry_after: int
+    dev_verification_token: str | None = None  # AUTH_DEV_MODE only
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 

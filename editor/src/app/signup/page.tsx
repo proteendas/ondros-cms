@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 
 import Icon from '@/components/ui/Icon';
+import ResendVerification from '@/components/ResendVerification';
 import { api } from '@/lib/api';
 import { BRAND } from '@/lib/brand';
 import LegalFooter from '@/components/ui/LegalFooter';
@@ -61,6 +62,12 @@ export default function SignupPage() {
             <Icon name="email" size={18} /> Check your email
           </h1>
           <p className="muted">{done.message}</p>
+          <p className="muted small" style={{ marginBottom: 0 }}>
+            Sent to <strong>{email}</strong>. Nothing in your inbox? Check spam, then
+            ask for another — the wait grows with each one.
+          </p>
+          {/* The signup itself sent the first email, so start on the 60s cooldown. */}
+          <ResendVerification email={email} initialCooldown={60} />
           {done.dev_verification_token && (
             <p className="muted small">
               Dev mode:{' '}

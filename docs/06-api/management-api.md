@@ -18,6 +18,7 @@ member of the account.
 | `POST` | `/auth/token` | OAuth2 **form** login (Swagger's Authorize button) |
 | `POST` | `/auth/refresh` | Rotate a refresh token — the presented one is revoked |
 | `POST` | `/auth/verify-email` | Confirm the address and sign in |
+| `POST` | `/auth/resend-verification` | New verification link; escalating cooldown (60s, 3m, 5m, 10m, 15m, 30m) returned as `retry_after`, 429 + `Retry-After` when too soon |
 | `POST` | `/auth/forgot-password` | Always 200 — never leaks whether an email exists |
 | `POST` | `/auth/reset-password` | Consume the token, set the password, sign in |
 | `POST` | `/auth/switch-account` | Re-scope the token to another account you belong to |

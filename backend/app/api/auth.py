@@ -43,6 +43,8 @@ from app.schemas.auth import (
     ForgotPasswordResponse,
     LoginRequest,
     RefreshRequest,
+    ResendVerificationRequest,
+    ResendVerificationResponse,
     ResetPasswordRequest,
     SignupRequest,
     SignupResponse,
@@ -61,6 +63,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
 ACTION_TOKEN_TTL = timedelta(hours=48)
+
+# Cooldown before the Nth verification email may be sent, in seconds: the 2nd
+# send (1st resend) waits 60s, then 3m, 5m, 10m, 15m, and 30m thereafter. Makes
+# a "didn't arrive" retry cheap while keeping the mailbox (and our sending
+# reputation) safe from someone holding down the button.
+RESEND_BACKOFF = (60, 180, 300, 600, 900, 1800)
+
+# Sends older than this stop counting, so the escalation decays instead of
+# leaving someone stuck at 30 minutes days later.
+RESEND_WINDOW = timedelta(hours=24)
 
 
 def _now() -> datetime:
@@ -109,6 +121,12 @@ async def _consume_action_token(db: AsyncSession, raw: str, purpose: str) -> Use
     token.used_at = _now()
     user = (await db.execute(select(User).where(User.id == token.user_id))).scalar_one()
     return user
+
+
+def _resend_cooldown(sends_in_window: int) -> int:
+    """Seconds to wait *after* `sends_in_window` verification emails."""
+    index = min(max(sends_in_window, 1), len(RESEND_BACKOFF)) - 1
+    return RESEND_BACKOFF[index]
 
 
 async def _sso_enforced_for(db: AsyncSession, email: str) -> SSOConfig | None:
@@ -189,6 +207,88 @@ async def verify_email(payload: VerifyEmailRequest, db: AsyncSession = Depends(g
     user.email_verified = True
     await db.commit()
     return await _issue_pair(db, user, user.tenant_id)
+
+
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
+async def resend_verification(
+    payload: ResendVerificationRequest, db: AsyncSession = Depends(get_db)
+):
+    """Send a fresh verification link, with an escalating per-user cooldown.
+
+    Like /forgot-password this answers 200 for an address that has no account
+    (or is already verified) so it can't be used to enumerate users. A real
+    send that is too soon answers 429 with `retry_after` in both the body and
+    the Retry-After header; the client shows that as a countdown.
+
+    Rate limiting reads the action_tokens rows rather than a counter column:
+    every verification email already leaves one, so the history is there and
+    survives a restart or a second instance — which an in-process counter
+    would not.
+    """
+    generic = "If that address still needs verifying, a new link is on its way."
+    user = (
+        await db.execute(select(User).where(User.email == payload.email))
+    ).scalar_one_or_none()
+    if user is None or not user.is_active or user.email_verified:
+        return ResendVerificationResponse(message=generic, retry_after=RESEND_BACKOFF[0])
+
+    previous = (
+        (
+            await db.execute(
+                select(ActionToken)
+                .where(
+                    ActionToken.user_id == user.id,
+                    ActionToken.purpose == ActionTokenPurpose.verify_email.value,
+                    ActionToken.created_at >= _now() - RESEND_WINDOW,
+                )
+                .order_by(ActionToken.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if previous:
+        elapsed = (_now() - previous[0].created_at).total_seconds()
+        remaining = int(_resend_cooldown(len(previous)) - elapsed)
+        if remaining > 0:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "resend_throttled",
+                    "retry_after": remaining,
+                    "message": "Another verification email was just sent.",
+                },
+                headers={"Retry-After": str(remaining)},
+            )
+
+    # Retire the links we're superseding so only the newest one works. Costs
+    # the user nothing (they're about to get a fresh one) and means a leaked
+    # older email can't be replayed.
+    for row in previous:
+        if row.used_at is None:
+            row.used_at = _now()
+
+    raw_token = await _create_action_token(db, user, ActionTokenPurpose.verify_email.value)
+    record_audit(
+        db, None, "user.verification_resent", "user", user.id, tenant_id=user.tenant_id
+    )
+    await db.commit()
+
+    verify_url = f"{settings.frontend_url}/verify-email?token={raw_token}"
+    await send_email(
+        user.email,
+        f"Verify your email — {settings.brand_name}",
+        f"<h2>Confirm your email</h2><p>Here's a fresh link to verify this address.</p>"
+        f"{link_button(verify_url, 'Verify email')}"
+        f"<p style='font-family:sans-serif;color:#667085;font-size:13px'>"
+        f"This replaces any earlier verification link.</p>",
+    )
+    return ResendVerificationResponse(
+        message=generic,
+        retry_after=_resend_cooldown(len(previous) + 1),
+        dev_verification_token=raw_token if settings.auth_dev_mode else None,
+    )
 
 
 # --- Login / refresh -------------------------------------------------------------
