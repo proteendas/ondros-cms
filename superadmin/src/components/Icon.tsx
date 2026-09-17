@@ -26,6 +26,8 @@ export const ICONS = {
   close: 'x',
   show: 'eye',
   hide: 'eye-slash',
+  warning: 'exclamation-triangle',
+  reload: 'arrow-clockwise',
 } as const;
 
 export type IconName = keyof typeof ICONS;
