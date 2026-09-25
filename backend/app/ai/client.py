@@ -17,11 +17,13 @@ Provider support (all via OpenAI-compatible APIs, so one code path):
 Chat-only providers (groq, openrouter) run fine: guideline retrieval falls
 back to keyword search instead of vector search (see app.ai.retrieval).
 """
+import asyncio
 import logging
 from functools import lru_cache
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
+from app.ai.models import discover_chat_model
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -40,7 +42,9 @@ class AIProviderError(RuntimeError):
     """
 
 
-# Defaults per provider: base URL, chat model, embedding model ("" = none).
+# Per provider: base URL, and the model used when the provider cannot be asked
+# what it offers (see app.ai.models — the chat model is normally discovered
+# from the key, because these constants go stale as catalogs move).
 PROVIDER_PRESETS: dict[str, dict[str, str]] = {
     "openai": {
         "base_url": "https://api.openai.com/v1",
@@ -79,6 +83,11 @@ class AIClient:
         self._client: AsyncOpenAI | AsyncAzureOpenAI | None = None
         self.chat_model = ""
         self.embedding_model = ""
+        # True when AI_CHAT_MODEL (or an Azure deployment) names the model, in
+        # which case it is never second-guessed.
+        self._model_pinned = True
+        self._model_resolved = False
+        self._model_lock = asyncio.Lock()
 
         if self.provider == "azure_openai":
             if self._settings.azure_openai_api_key and self._settings.azure_openai_endpoint:
@@ -97,7 +106,11 @@ class AIClient:
                     api_key=api_key,
                     base_url=self._settings.ai_base_url or preset["base_url"],
                 )
+                # Explicit config wins; otherwise this is a provisional value
+                # that _ensure_chat_model() replaces with one the provider
+                # actually lists. Discovery needs an await, and this is __init__.
                 self.chat_model = self._settings.ai_chat_model or preset["chat_model"]
+                self._model_pinned = bool(self._settings.ai_chat_model)
                 embed = self._settings.ai_embedding_model or preset["embedding_model"]
                 self.embedding_model = "" if embed == "none" else embed
 
@@ -128,6 +141,7 @@ class AIClient:
     ) -> str:
         """messages: [{"role": "system"|"user"|"assistant", "content": "..."}]"""
         client = self._require_client()
+        await self._ensure_chat_model()
         kwargs: dict = {
             "model": self.chat_model,
             "messages": messages,
@@ -147,7 +161,17 @@ class AIClient:
                 kwargs.pop("response_format", None)
                 response = await client.chat.completions.create(**kwargs)
         except Exception as exc:  # noqa: BLE001 - re-raised as a typed error
-            raise self._provider_error(exc) from exc
+            # A 404 here means the model went away under us — retired, renamed,
+            # or never enabled for this key. Re-ask the provider and try once
+            # more, so a catalog change heals instead of needing a redeploy.
+            if getattr(exc, "status_code", None) == 404 and await self._rediscover_chat_model():
+                kwargs["model"] = self.chat_model
+                try:
+                    response = await client.chat.completions.create(**kwargs)
+                except Exception as retry_exc:  # noqa: BLE001
+                    raise self._provider_error(retry_exc) from retry_exc
+            else:
+                raise self._provider_error(exc) from exc
         return response.choices[0].message.content or ""
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
@@ -163,6 +187,48 @@ class AIClient:
             raise self._provider_error(exc) from exc
         # API preserves input order.
         return [item.embedding for item in response.data]
+
+    async def resolve_chat_model(self) -> str:
+        """The model a chat call would actually use, resolving it if needed.
+
+        /ai/status calls this so the editor never reports the provisional
+        preset as the active model.
+        """
+        await self._ensure_chat_model()
+        return self.chat_model
+
+    async def _ensure_chat_model(self) -> None:
+        """Replace the provisional model with one the provider lists.
+
+        Runs once per process, on the first call that needs a model, because
+        it costs a round trip and __init__ cannot await. Concurrent first
+        calls share one lookup rather than each making their own.
+        """
+        if self._model_pinned or self._model_resolved or self._client is None:
+            return
+        async with self._model_lock:
+            if self._model_resolved:
+                return
+            discovered = await discover_chat_model(self._client, self.provider)
+            if discovered:
+                self.chat_model = discovered
+            self._model_resolved = True
+
+    async def _rediscover_chat_model(self) -> bool:
+        """Re-ask after a 404. True when it produced a different model to try."""
+        if self._model_pinned or self._client is None:
+            return False
+        previous = self.chat_model
+        discovered = await discover_chat_model(self._client, self.provider)
+        self._model_resolved = True
+        if discovered and discovered != previous:
+            logger.warning(
+                "AI: %s no longer serves '%s'; switched to '%s'",
+                self.provider, previous, discovered,
+            )
+            self.chat_model = discovered
+            return True
+        return False
 
     def _provider_error(self, exc: Exception) -> "AIProviderError":
         """Turn a provider SDK failure into something an editor can act on.
@@ -180,9 +246,14 @@ class AIClient:
                 f"is for a different one."
             )
         if status == 404:
+            if self._model_pinned:
+                return AIProviderError(
+                    f"{self.provider} has no model '{self.chat_model}' ({status}). "
+                    f"Unset AI_CHAT_MODEL to let Ondros pick one this key can use."
+                )
             return AIProviderError(
-                f"{self.provider} has no model '{self.chat_model}' ({status}). "
-                f"Set AI_CHAT_MODEL to one the provider offers."
+                f"{self.provider} offers no usable chat model for this key ({status}). "
+                f"Check the key is enabled for chat completions, or set AI_CHAT_MODEL."
             )
         if status == 429:
             return AIProviderError(f"{self.provider} rate limit reached. Try again shortly.")

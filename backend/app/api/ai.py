@@ -52,7 +52,7 @@ async def ai_status(actor: Actor = Depends(get_actor)):
     return AiStatusResponse(
         configured=client.is_configured,
         provider=client.provider,
-        chat_model=client.chat_model,
+        chat_model=await client.resolve_chat_model(),
         embeddings_enabled=client.supports_embeddings,
         retrieval_mode=retrieval_mode(),
     )

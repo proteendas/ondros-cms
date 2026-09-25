@@ -148,10 +148,24 @@ space hasn't connected a repository yet".
 | `AI_PROVIDER` | `""` | `groq` · `gemini` · `ollama` · `openrouter` · `openai` · `azure_openai`. Empty = AI disabled |
 | `AI_API_KEY` | `""` | Not needed for `ollama` |
 | `AI_BASE_URL` | `""` | Override the provider's base URL |
-| `AI_CHAT_MODEL` | `""` | Override the default model |
+| `AI_CHAT_MODEL` | `""` | Pin a model. Empty = discovered from what the key can use |
 | `AI_EMBEDDING_MODEL` | `""` | `"none"` disables embeddings |
 | `EMBEDDING_DIM` | `1536` | **Fixed at first ingest** — 768 for Gemini/Ollama |
 | `AZURE_OPENAI_*` | | Only when `AI_PROVIDER=azure_openai` |
+
+Both the provider and the model come from the key. The prefix says which
+provider it belongs to (`gsk_` → Groq, `AIza` → Gemini, `sk-or-` → OpenRouter,
+`sk-` → OpenAI), and on the first AI call Ondros lists the models that key can
+actually use and picks the best chat model among them.
+
+That replaces a hardcoded default per provider, which is a bet that a catalog
+will not move — it does, and the deployment then fails with
+`groq has no model 'llama-3.3-70b-versatile' (404)` for a model that was the
+right default when the constant was written. If a model is retired while the
+process is running, the 404 triggers one re-check and the call is retried, so
+it heals without a redeploy.
+
+Set `AI_CHAT_MODEL` to pin a specific model and skip all of this.
 
 ### Seeding
 
