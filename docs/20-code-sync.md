@@ -203,7 +203,13 @@ Only `text`, `longtext`, `richtext`, `slug`, `select` and `number` are editable
 in place — structured values (references, media, JSON) are edited in the form,
 because there is no sensible `contenteditable` representation of them.
 
-> The bundled `preview/` app is the reference implementation of this contract:
+> **A worked example**:
+> [`ondros-demo-site`](https://github.com/proteendas/ondros-demo-site) is a
+> small Next.js site wired up exactly this way — manifest, bridge script,
+> instrumented components and draft previews. It is the easiest thing to copy
+> from when instrumenting your own project.
+>
+> The bundled `preview/` app is the in-repo reference implementation:
 > it emits `data-ondros-*` attributes and loads the bridge script. Its routes
 > (`/landing_page/{slug}`, `/article/{slug}`) are exactly the convention, so it
 > needs no manifest — point a space at any repo with
