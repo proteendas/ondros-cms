@@ -44,6 +44,19 @@ services:
         value: ""
       - key: AI_API_KEY
         sync: false
+      # --- Ondros Code Sync (optional) ---------------------------------------
+      # Connects a space to the GitHub repo that renders its site, so previews
+      # show the project's own pages. Unset = the editor says so; nothing else
+      # is affected. Separate from GITHUB_CLIENT_ID (that one is for login).
+      # Setup: docs/20-code-sync.md
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_SLUG
+        value: ondros-code-sync
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false # the PEM with \n-escaped newlines, or base64 of it
+      - key: GITHUB_APP_WEBHOOK_SECRET
+        generateValue: true # also paste this into the App's webhook settings
       # --- Outbound email (verification / reset / invitations) --------------
       # Empty MAIL_PROVIDER auto-detects: resend -> brevo -> smtp -> log.
       # With none configured, emails are only written to the service log.

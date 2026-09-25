@@ -88,6 +88,7 @@ Environment variables (see `.env.example` for the full annotated list):
 | `RESEND_API_KEY` + `MAIL_FROM` | recommended. Free [Resend](https://resend.com) tier, HTTP API — no SMTP ports needed. `BREVO_API_KEY` or `SMTP_*` also work. Without any provider, verification emails are only written to the log |
 | `AI_PROVIDER` / `AI_API_KEY` | optional — `groq` (console.groq.com) or `gemini` (aistudio.google.com) free keys; set `EMBEDDING_DIM=768` for Gemini **before first ingest** |
 | `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` | from step 5 (optional) |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET` | optional — [Code Sync](../20-code-sync.md), so previews render the connected repo's own pages. A *different* GitHub app from the login one above || `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` | from step 5 (optional) |
 
 The app runs boot-time dev migrations automatically; step 6 shows the explicit
 Alembic path.
