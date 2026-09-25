@@ -342,3 +342,68 @@ async def test_a_committed_manifest_beats_the_convention():
     )
     assert source == "ondros"
     assert manifest["routes"] == {"article": "/blog/{slug}"}
+
+
+# --- private key parsing -------------------------------------------------------
+#
+# Hosting dashboards mangle multi-line secrets, and each way it goes wrong looks
+# identical from the outside ("neither a PEM nor valid base64"), so every shape
+# a person might paste is pinned here.
+
+
+def _test_pem() -> str:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode()
+
+
+@pytest.mark.parametrize(
+    "shape",
+    ["pem", "escaped_pem", "base64", "base64_wrapped", "base64_trailing_newline"],
+)
+def test_private_key_accepts_every_shape_a_dashboard_produces(monkeypatch, shape):
+    import base64 as b64
+
+    from app.config import get_settings
+    from app.core import github_app
+
+    pem = _test_pem()
+    compact = b64.b64encode(pem.encode()).decode()
+    value = {
+        "pem": pem,
+        "escaped_pem": pem.replace("\n", "\\n"),
+        "base64": compact,
+        # `base64` folds at 76 columns on GNU coreutils...
+        "base64_wrapped": "\n".join(compact[i : i + 76] for i in range(0, len(compact), 76)),
+        # ...and a dashboard textarea adds its own trailing newline.
+        "base64_trailing_newline": compact + "\n",
+    }[shape]
+
+    monkeypatch.setenv("GITHUB_APP_PRIVATE_KEY", value)
+    get_settings.cache_clear()
+    try:
+        assert github_app._private_key().startswith("-----BEGIN RSA PRIVATE KEY-----")
+    finally:
+        get_settings.cache_clear()
+
+
+def test_private_key_rejects_something_that_is_not_a_key(monkeypatch):
+    from app.config import get_settings
+    from app.core import github_app
+
+    monkeypatch.setenv("GITHUB_APP_PRIVATE_KEY", "not a key at all !!")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(github_app.GitHubError) as exc:
+            github_app._private_key()
+        # The message has to say what to paste — this is the one error people
+        # hit while setting the App up.
+        assert ".pem file" in str(exc.value)
+    finally:
+        get_settings.cache_clear()

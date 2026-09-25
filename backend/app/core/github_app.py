@@ -55,17 +55,30 @@ _installation_tokens: dict[str, _CachedToken] = {}
 
 
 def _private_key() -> str:
-    """The App's PEM, accepting the three shapes people paste into env vars."""
+    """The App's PEM, accepting the shapes people actually paste into env vars.
+
+    Hosting dashboards mangle multi-line secrets in different ways, so all of
+    these are accepted: a real PEM, a PEM whose newlines were escaped as
+    ``\\n``, and a base64 copy of the file — wrapped or not, since ``base64``
+    on some platforms folds at 76 columns and a dashboard may add a trailing
+    newline of its own.
+    """
     raw = (get_settings().github_app_private_key or "").strip()
     if not raw:
         raise GitHubError("GITHUB_APP_PRIVATE_KEY is not set")
     if "-----BEGIN" in raw:
         # Escaped newlines survive .env round-trips; real newlines pass through.
         return raw.replace("\\n", "\n")
+    # Whitespace is not in the base64 alphabet, so strip it before validating —
+    # otherwise a single stray newline makes a perfectly good key look invalid.
+    compact = "".join(raw.split())
     try:
-        decoded = base64.b64decode(raw, validate=True).decode("utf-8")
+        decoded = base64.b64decode(compact, validate=True).decode("utf-8")
     except (binascii.Error, UnicodeDecodeError) as exc:
-        raise GitHubError("GITHUB_APP_PRIVATE_KEY is neither a PEM nor valid base64") from exc
+        raise GitHubError(
+            "GITHUB_APP_PRIVATE_KEY is neither a PEM nor valid base64. Paste the "
+            "contents of the .pem file GitHub downloaded, or a base64 copy of it."
+        ) from exc
     if "-----BEGIN" not in decoded:
         raise GitHubError("GITHUB_APP_PRIVATE_KEY decoded to something that is not a PEM")
     return decoded
