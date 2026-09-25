@@ -113,6 +113,27 @@ error text.
 
 Per-account enterprise SSO is configured in the UI, not by env var.
 
+### Code Sync (GitHub App)
+
+Connects a space to the repository that renders its site, so previews show your
+own pages and components. Full setup: [20-code-sync.md](20-code-sync.md).
+
+| Variable | Notes |
+|---|---|
+| `GITHUB_APP_ID` | The App's numeric id |
+| `GITHUB_APP_SLUG` | Used to build the install URL (default `ondros-code-sync`) |
+| `GITHUB_APP_PRIVATE_KEY` | The PEM, with real or `\n`-escaped newlines, or base64 of it |
+| `GITHUB_APP_WEBHOOK_SECRET` | Verifies `POST /code-sync/github/webhook`; unset means **every** webhook is rejected |
+| `GITHUB_TOKEN` | Development fallback PAT, used only when no App is configured |
+| `GITHUB_API_URL` | `https://api.github.com`; change for GitHub Enterprise |
+
+These are separate from `GITHUB_CLIENT_ID`/`_SECRET` above, which are for
+**login**. One authenticates people, the other reads repositories.
+
+With none of them set, Code Sync reports `mode: none` and the editor says an
+operator must register the App — deliberately a different message from "this
+space hasn't connected a repository yet".
+
 ### Billing
 
 | Variable | Notes |

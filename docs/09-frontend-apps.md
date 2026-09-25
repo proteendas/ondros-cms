@@ -6,7 +6,7 @@ access. They share conventions but ship independently.
 | App | Port | Audience |
 |---|---|---|
 | `editor/` | 3000 | Content teams — the main product |
-| `preview/` | 3001 | A demo consumer site; your real frontend replaces it |
+| `preview/` | 3001 | Reference instrumented site; **your own site replaces it** via [Code Sync](20-code-sync.md) |
 | `superadmin/` | 3003 | Platform operators, across all tenants |
 
 ## Editor
@@ -74,18 +74,28 @@ in `FIELD_TYPE_INFO` — no per-content-type code exists anywhere.
 
 ### Live preview
 
+The pane loads **your project's deployed site**, not a generic rendering — the
+Adobe Universal Editor arrangement. Which site, which page and which component
+come from [Code Sync](20-code-sync.md); with no repository connected the pane
+offers *Connect with GitHub* instead of showing a frame.
+
 ```mermaid
 flowchart LR
-    F["Entry form"] -->|"postMessage on keystroke"| I["preview iframe"]
-    I -->|"double-click a field"| F
+    F["Entry form"] -->|"postMessage on keystroke"| I["your site in an iframe"]
+    I -->|"click / double-click a field"| F
     F -->|"PATCH on save"| API["backend"]
     API -->|"WebSocket"| O["other editors"]
+    CS["Code Sync"] -->|"preview-target: page or component"| F
 ```
 
 Typing patches the iframe's DOM directly with **no network round trip**, which
-is what makes it feel instant. Only saving hits the API. The preview annotates
-its markup with `data-cms-*` attributes so a clicked node maps back to a field
-id.
+is what makes it feel instant. Only saving hits the API. The site annotates its
+markup with `data-ondros-*` attributes so a clicked node maps back to a field
+id, and loads `/code-sync/ondros-editor.js` to speak the protocol.
+
+An entry whose type models a slug previews at its own URL (*page-wise*); a
+block previews inside a page that references it, scrolled to and outlined
+(*component-wise*).
 
 ## Preview
 
@@ -110,9 +120,11 @@ which is the whole published/draft switch in one flag.
 `EntryRenderer` walks the content type schema and renders nested assemblies
 recursively, bounded by `MAX_NESTING`.
 
-> This app is a **reference implementation**, not a product. Replace it with
-> your real site and keep the `data-cms-*` conventions if you want inline
-> editing.
+> This app is a **reference implementation**, not a product. It emits both
+> `data-ondros-*` (the [Code Sync](20-code-sync.md) contract) and the older
+> `data-cms-*` attributes, and loads the bridge script from the backend — so it
+> is a working example of what your own site needs to do. Connect your real
+> site through Code Sync and this app stops being in the loop.
 
 ## Superadmin
 

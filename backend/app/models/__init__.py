@@ -10,6 +10,7 @@ from app.models.accounts import (
     RefreshToken,
 )
 from app.models.content import ContentType, Entry, EntryStatus, MediaAsset
+from app.models.code_sync import CodeSyncConnection, CodeSyncStatus
 from app.models.api_keys import ApiKey, ApiKeyType
 from app.models.webhooks import Webhook, WebhookDelivery
 from app.models.sso import SSOConfig
@@ -36,6 +37,8 @@ __all__ = [
     "Entry",
     "EntryStatus",
     "MediaAsset",
+    "CodeSyncConnection",
+    "CodeSyncStatus",
     "ApiKey",
     "ApiKeyType",
     "Webhook",

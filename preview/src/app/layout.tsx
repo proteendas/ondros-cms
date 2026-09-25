@@ -30,6 +30,8 @@ const mono = localFont({
   variable: '--font-mono',
 });
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
 export const metadata: Metadata = {
   title: 'Acme Site (CMS preview frontend)',
   description: 'Delivery/preview frontend for the headless CMS',
@@ -60,6 +62,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         )}
         {children}
+        {/* Ondros Universal Editor bridge — the same script a connected
+            project includes (docs/20-code-sync.md). It no-ops unless the page
+            is open inside the editor, so it is safe on production pages. */}
+        <script src={`${API_URL}/code-sync/ondros-editor.js`} defer />
       </body>
     </html>
   );

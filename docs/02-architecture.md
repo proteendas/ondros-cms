@@ -187,14 +187,24 @@ so you can see what happened.
 
 ### Live preview with inline editing
 
-The feature that makes the editor feel like a page builder rather than a form:
+The feature that makes the editor feel like a page builder rather than a form.
+What loads in the iframe is **the customer's own deployed site**, not a
+rendering this CMS invents — the Adobe Universal Editor arrangement. Which URL
+to load comes from [Code Sync](20-code-sync.md), which knows the space's
+connected repository, its component mapping and its routes:
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant ED as Editor (:3000)
-    participant IF as Preview iframe (:3001)
+    participant CS as Code Sync
+    participant IF as Your site (iframe)
     participant API as Backend
+
+    ED->>CS: preview-target(entryId)
+    CS--)ED: page URL, or a page + component to focus
+    ED->>IF: load ?ondros-preview=1[&ondros-focus=…]
+    IF--)ED: postMessage(ready, instrumented field count)
 
     U->>ED: types in a field
     ED->>ED: local state updates
@@ -211,9 +221,16 @@ sequenceDiagram
     API--)ED: WebSocket broadcast to other editors
 ```
 
-The preview page annotates its markup with `data-cms-*` attributes, which is
-how the bridge maps a clicked DOM node back to a field id. Both directions are
-`postMessage`, so the preview can be any origin you control.
+The site annotates its markup with `data-ondros-*` attributes and loads the
+bridge script the backend serves at `/code-sync/ondros-editor.js`; together
+they map a clicked DOM node back to a field id. Both directions are
+`postMessage`, so the site can be any origin.
+
+Entries resolve two ways. A type that models a slug is a page, so its entry
+previews at its own URL. A block has no page of its own, so the backend finds a
+page that references it and the bridge scrolls to and outlines that one
+component. With no repository connected, the pane offers **Connect with
+GitHub** rather than pretending it can render something.
 
 ### Environment cloning
 

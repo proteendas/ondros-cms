@@ -91,6 +91,23 @@ class Settings(BaseSettings):
     # Allows activating plans without Stripe (local/dev).
     billing_dev_mode: bool = True
 
+    # --- Ondros Code Sync (GitHub App, spec 020) ---------------------------
+    # Connects a space to the GitHub repository that renders its site, so the
+    # editor can preview pages and components exactly as that project renders
+    # them (the Adobe AEM Universal Editor arrangement). Register a GitHub App
+    # named "Ondros Code Sync" and fill these in; see docs/20-code-sync.md.
+    github_app_id: str = ""
+    github_app_slug: str = "ondros-code-sync"
+    # PEM contents (newlines may be escaped as \n) or a base64 copy of the PEM.
+    github_app_private_key: str = ""
+    github_app_client_id: str = ""
+    github_app_client_secret: str = ""
+    github_app_webhook_secret: str = ""
+    # Dev fallback: a personal access token used instead of an App installation
+    # so the feature is exercisable before the App exists. Never use in prod.
+    github_token: str = ""
+    github_api_url: str = "https://api.github.com"
+
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
     media_root: str = "media"
 
@@ -116,6 +133,19 @@ class Settings(BaseSettings):
     # (the pgvector column is fixed-size). 1536 = OpenAI text-embedding-3-small;
     # 768 = Gemini text-embedding-004 / Ollama nomic-embed-text.
     embedding_dim: int = 1536
+
+    @property
+    def github_app_configured(self) -> bool:
+        return bool(self.github_app_id and self.github_app_private_key)
+
+    @property
+    def code_sync_mode(self) -> str:
+        """Which GitHub credential Code Sync will use: app | token | none."""
+        if self.github_app_configured:
+            return "app"
+        if self.github_token:
+            return "token"
+        return "none"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -2,9 +2,15 @@
  * Renders an entry generically from its content type schema, stamping every
  * field element with the attributes the inline-editing system relies on:
  *
- *   data-cms-entry-id    on each entry wrapper (root AND nested blocks)
- *   data-cms-field-id    on each field element
- *   data-cms-field-type  so the bridge knows HTML vs plain-text commits
+ *   data-ondros-resource  on each entry wrapper (root AND nested blocks)
+ *   data-ondros-component the content type rendering that subtree
+ *   data-ondros-prop      on each field element
+ *   data-ondros-type      so the bridge knows HTML vs plain-text commits
+ *
+ * This is the same contract a connected project implements (see
+ * docs/20-code-sync.md) — this app is the reference implementation of it. The
+ * older data-cms-* attributes are emitted alongside for backwards
+ * compatibility with the bundled InlineEditingBridge.
  *
  * Reference fields resolve against `includes` (fetched with include=2), so
  * assemblies render their nested blocks — each with its own entry id, making
@@ -34,7 +40,12 @@ export default function EntryRenderer({
 }) {
   const maps = buildIncludeMaps(includes);
   return (
-    <main className="entry" data-cms-entry-id={entry.id}>
+    <main
+      className="entry"
+      data-ondros-resource={`entry:${entry.id}`}
+      data-ondros-component={entry.contentType.apiId}
+      data-cms-entry-id={entry.id}
+    >
       <EntryBody entry={entry} maps={maps} depth={0} />
     </main>
   );
@@ -67,7 +78,13 @@ function Field({
   maps: Maps;
   depth: number;
 }) {
+  // Both vocabularies: `data-ondros-*` is the Universal-Editor-style contract
+  // documented for connected projects, `data-cms-*` is what the bundled
+  // bridge has always used. Emitting both keeps old and new bridges working.
   const attrs = {
+    'data-ondros-prop': field.id,
+    'data-ondros-type': field.type,
+    'data-ondros-label': field.name,
     'data-cms-field-id': field.id,
     'data-cms-field-type': field.type,
   };
@@ -145,6 +162,8 @@ function Field({
         <section
           {...attrs}
           className={`block block-${linked.contentType.apiId}`}
+          data-ondros-resource={`entry:${linked.id}`}
+          data-ondros-component={linked.contentType.apiId}
           data-cms-entry-id={linked.id}
         >
           <EntryBody entry={linked} maps={maps} depth={depth + 1} />
@@ -163,6 +182,8 @@ function Field({
               <section
                 key={id}
                 className={`block block-${linked.contentType.apiId}`}
+                data-ondros-resource={`entry:${linked.id}`}
+                data-ondros-component={linked.contentType.apiId}
                 data-cms-entry-id={linked.id}
               >
                 <EntryBody entry={linked} maps={maps} depth={depth + 1} />
@@ -318,7 +339,12 @@ function RichTextNodeEl({ node, maps, nodeKey }: { node: RichTextNode; maps: Map
       const e = maps.entries.get(String(node.attrs?.id));
       if (!e) return null;
       return (
-        <section className={`block block-${e.contentType.apiId}`} data-cms-entry-id={e.id}>
+        <section
+          className={`block block-${e.contentType.apiId}`}
+          data-ondros-resource={`entry:${e.id}`}
+          data-ondros-component={e.contentType.apiId}
+          data-cms-entry-id={e.id}
+        >
           <EntryBody entry={e} maps={maps} depth={1} />
         </section>
       );

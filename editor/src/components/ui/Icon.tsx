@@ -52,6 +52,7 @@ export const ICONS = {
   back: 'arrow-left',
   forward: 'arrow-right',
   'generate-slug': 'magic',
+  'code-sync': 'git',
   'inspector-on': 'eye',
   'inspector-off': 'eye-slash',
   // AI

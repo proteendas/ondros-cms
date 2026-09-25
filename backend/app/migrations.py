@@ -56,6 +56,9 @@ DDL_STATEMENTS = [
     # DEFAULT TRUE grandfathers existing rows; new ORM inserts default to False.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT TRUE",
     "ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE",
+    # --- Code Sync (spec 020): columns added after the table shipped.
+    "ALTER TABLE code_sync_connections ADD COLUMN IF NOT EXISTS manifest_path VARCHAR(300) DEFAULT ''",
+    "ALTER TABLE code_sync_connections ADD COLUMN IF NOT EXISTS preview_base_url VARCHAR(500) DEFAULT ''",
     # --- Platform admin (spec 013): operator flag + account suspension.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN DEFAULT FALSE",
     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'",
@@ -66,6 +69,7 @@ DDL_STATEMENTS = [
 _RLS_TABLES = [
     "spaces", "environments", "locales", "content_types", "entries",
     "media_assets", "api_keys", "webhooks", "guideline_documents", "roles",
+    "code_sync_connections",
     "account_members", "invitations", "refresh_tokens", "sso_configs",
     "subscriptions", "usage_counters", "audit_logs",
 ]

@@ -10,6 +10,7 @@ apps. Content teams model and write; your frontend reads JSON.
 | Understand what this is | [01-overview.md](01-overview.md) |
 | Run it locally | [04-getting-started.md](04-getting-started.md) |
 | Pull content into my site | [06-api/delivery-api.md](06-api/delivery-api.md) → [14-sdk.md](14-sdk.md) |
+| Make my site editable in the preview | [20-code-sync.md](20-code-sync.md) |
 | Understand how it's built | [02-architecture.md](02-architecture.md) |
 | Deploy it | [17-deployment/](17-deployment/) |
 | Change the code | [19-contributing.md](19-contributing.md) |
@@ -66,6 +67,7 @@ apps. Content teams model and write; your frontend reads JSON.
 | [12-webhooks.md](12-webhooks.md) | Events, HMAC signing, delivery semantics |
 | [13-billing-and-usage.md](13-billing-and-usage.md) | Plans, metering, 402 and 429 |
 | [14-sdk.md](14-sdk.md) | `@ondros/sdk` |
+| [20-code-sync.md](20-code-sync.md) | Connect a GitHub repo so previews render **your** pages and components |
 | [15-cli.md](15-cli.md) | `ondros-cli` |
 
 ### Operating it

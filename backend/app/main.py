@@ -40,6 +40,7 @@ from app.api import (
     audit,
     auth,
     billing,
+    code_sync,
     content_types,
     delivery,
     entries,
@@ -136,6 +137,7 @@ app.include_router(locales.router)
 app.include_router(audit.router)
 app.include_router(api_keys.router)
 app.include_router(webhooks.router)
+app.include_router(code_sync.router)
 app.include_router(content_types.router)
 app.include_router(entries.router)
 app.include_router(media.router)
@@ -147,6 +149,13 @@ app.include_router(platform_admin.router)
 app.include_router(ws.router)
 
 app.mount("/files", StaticFiles(directory=settings.media_root, check_dir=False), name="files")
+# The Universal Editor bridge a connected project includes on its own pages
+# (see docs/20-code-sync.md). Served from here so every site runs one version.
+app.mount(
+    "/code-sync",
+    StaticFiles(directory=Path(__file__).parent / "static", check_dir=False),
+    name="code-sync-assets",
+)
 
 
 @app.get("/health")

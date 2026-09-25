@@ -42,6 +42,7 @@ const NAV: {
     { href: '/settings/locales', icon: 'locale', label: 'Locales' },
     { href: '/settings/api-keys', icon: 'api-key', label: 'API keys' },
     { href: '/settings/environments', icon: 'environment', label: 'Environments' },
+    { href: '/settings/code-sync', icon: 'code-sync', label: 'Code Sync' },
     { href: '/settings/webhooks', icon: 'webhook', label: 'Webhooks' },
     { href: '/settings/audit-log', icon: 'audit', label: 'Audit log' },
   ]},

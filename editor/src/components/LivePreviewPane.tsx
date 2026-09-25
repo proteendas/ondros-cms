@@ -1,33 +1,39 @@
 'use client';
 
 /**
- * Embeds the preview app in an iframe, pointed at its /api/preview route so
- * Next.js draft mode is enabled and the DRAFT version of the entry renders.
+ * Live preview — the project's own site, not a generic rendering.
  *
- * The preview app authenticates against the CMS with a *preview API key*
- * (NEXT_PUBLIC_PREVIEW_TOKEN — the seeded dev key by default) scoped to the
- * current space + environment. Locale is forwarded so localized fields render
- * the same locale the editor has active.
+ * Like Adobe's Universal Editor, this pane does not render content itself. It
+ * loads the deployed site of the GitHub repository connected to this space
+ * (Settings -> Code Sync) and edits it in place, so what an author sees is
+ * exactly what that project ships:
  *
- * Live sync works through two channels:
- *  1. WebSocket: the backend broadcasts entry.updated after every save; the
- *     preview's InlineEditingBridge listens and refreshes its data.
- *  2. postMessage (parent -> iframe): after a local save the editor also sends
- *     FIELD_UPDATED so the bridge can patch the DOM instantly (no refetch wait).
+ *   page-wise       an entry whose type models a slug is its own page, so the
+ *                   iframe opens that page's real URL
+ *   component-wise  a block (hero, card…) has no page of its own, so the
+ *                   backend finds a page that references it and the bridge
+ *                   scrolls to and outlines that component
+ *
+ * The site becomes editable by including the bridge script
+ * (`/code-sync/ondros-editor.js`) and marking elements with `data-ondros-*`.
+ * The bridge speaks the same postMessage protocol as before, so inline edits
+ * and instant field patches keep working:
+ *
+ *   1. WebSocket: the backend broadcasts entry.updated after every save.
+ *   2. postMessage (parent -> iframe): FIELD_UPDATED patches the DOM instantly.
+ *
+ * Without a connected repository there is nothing to render, so the pane says
+ * so and offers to connect rather than showing a broken frame.
  */
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import Link from 'next/link';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import Icon from '@/components/ui/Icon';
+import { api } from '@/lib/api';
 import { MSG } from '@/lib/protocol';
-import type { ContentType, Entry } from '@/lib/types';
+import type { CodeSyncState, ContentType, Entry, PreviewTarget } from '@/lib/types';
 
 import InlineEditorOverlay from './InlineEditorOverlay';
-
-const PREVIEW_URL = process.env.NEXT_PUBLIC_PREVIEW_URL ?? 'http://localhost:3001';
-// Dev-only: preview API key baked into the editor bundle (the seed's key by
-// default). For production, mint short-lived preview keys per editor session.
-const PREVIEW_TOKEN =
-  process.env.NEXT_PUBLIC_PREVIEW_TOKEN ?? 'cms_pre_dev-preview-token-0000';
 
 export interface LivePreviewHandle {
   /** Push an optimistic field update into the preview iframe. */
@@ -46,30 +52,67 @@ interface Props {
 }
 
 const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePreviewPane(
-  { entry, contentType, spaceId, environmentKey, locale, onFieldSelected, onInlineCommit },
+  { entry, spaceId, environmentKey, locale, onFieldSelected, onInlineCommit },
   ref,
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [inspector, setInspector] = useState(true);
   const [nonce, setNonce] = useState(0);
 
-  // Pages are previewed by slug; blocks (types with no slug field, and pages
-  // whose slug is still blank) by entry id.
-  const params = new URLSearchParams({
-    token: PREVIEW_TOKEN,
-    space: spaceId,
-    environment: environmentKey,
-    type: contentType.api_id,
-    ...(entry.slug ? { slug: entry.slug } : { id: entry.id }),
-    locale,
-  });
-  const src = `${PREVIEW_URL}/api/preview?${params}`;
+  const [codeSync, setCodeSync] = useState<CodeSyncState | null>(null);
+  const [target, setTarget] = useState<PreviewTarget | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // The bridge reports how many instrumented elements it found. Zero on a page
+  // that otherwise loaded is the tell-tale of a site missing data-ondros-*
+  // markup, and it's worth saying out loud rather than leaving authors puzzled.
+  const [instrumented, setInstrumented] = useState<number | null>(null);
+
+  // ---- is this space connected to a repository? ---------------------------
+  useEffect(() => {
+    if (!spaceId) return;
+    api<CodeSyncState>(`/spaces/${spaceId}/code-sync`)
+      .then(setCodeSync)
+      .catch(() =>
+        setCodeSync({
+          connected: false,
+          configured: false,
+          mode: 'none',
+          install_url: '',
+          app_slug: '',
+          connection: null,
+        }),
+      );
+  }, [spaceId]);
+
+  // ---- which URL on that site shows this entry? ---------------------------
+  const resolveTarget = useCallback(() => {
+    if (!spaceId || !environmentKey || !codeSync?.connected) return;
+    setError(null);
+    api<PreviewTarget>(
+      `/spaces/${spaceId}/environments/${encodeURIComponent(environmentKey)}` +
+        `/code-sync/preview-target?entry_id=${entry.id}`,
+    )
+      .then(setTarget)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Could not resolve a preview URL'));
+    // entry.slug matters: filling in a slug turns an unroutable draft into a page.
+  }, [spaceId, environmentKey, entry.id, entry.slug, codeSync?.connected]);
+
+  useEffect(resolveTarget, [resolveTarget]);
+
+  // The site's own origin, so field patches aren't broadcast to any listener.
+  const targetOrigin = (() => {
+    try {
+      return target?.url ? new URL(target.url).origin : '*';
+    } catch {
+      return '*';
+    }
+  })();
 
   useImperativeHandle(ref, () => ({
     notifyFieldUpdated(entryId, fieldId, value) {
       iframeRef.current?.contentWindow?.postMessage(
         { type: MSG.FIELD_UPDATED, entryId, fieldId, value },
-        PREVIEW_URL,
+        targetOrigin,
       );
     },
     reload() {
@@ -77,13 +120,49 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
     },
   }));
 
+  // ---- the bridge announcing itself ---------------------------------------
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (data && typeof data === 'object' && data.type === MSG.PREVIEW_READY) {
+        setInstrumented(
+          typeof data.instrumentedFields === 'number' ? data.instrumentedFields : null,
+        );
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
   function toggleInspector() {
     const next = !inspector;
     setInspector(next);
     iframeRef.current?.contentWindow?.postMessage(
       { type: MSG.SET_INSPECTOR, enabled: next },
-      PREVIEW_URL,
+      targetOrigin,
     );
+  }
+
+  // Tell the site it is being previewed, which locale to render, and which
+  // component to reveal when previewing a block.
+  const src = (() => {
+    if (!target?.url) return '';
+    try {
+      const url = new URL(target.url);
+      url.searchParams.set('ondros-preview', '1');
+      if (locale) url.searchParams.set('ondros-locale', locale);
+      if (target.focus_entry_id) url.searchParams.set('ondros-focus', target.focus_entry_id);
+      if (environmentKey) url.searchParams.set('ondros-environment', environmentKey);
+      // Cache-buster so Reload really refetches a statically served page.
+      if (nonce) url.searchParams.set('ondros-nonce', String(nonce));
+      return url.toString();
+    } catch {
+      return '';
+    }
+  })();
+
+  if (codeSync && !codeSync.connected) {
+    return <NotConnected state={codeSync} spaceId={spaceId} />;
   }
 
   return (
@@ -91,28 +170,73 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
       <div className="row" style={{ marginBottom: 8 }}>
         <strong>Live preview</strong>
         <span className="muted small">
-          {environmentKey} · {locale} · draft
+          {environmentKey} · {locale} · {target?.mode === 'component' ? 'component' : 'page'}
         </span>
+        {target?.mode === 'component' && target.host_title && (
+          <span
+            className="chip"
+            title="This block has no page of its own, so it is shown inside a page that uses it"
+          >
+            <Icon name="content" size={10} /> in /{target.host_title}
+          </span>
+        )}
         <span className="spacer" />
         <button className="btn secondary small" onClick={toggleInspector}>
-          {inspector ? <><Icon name="inspector-on" size={13} /> Inspector on</> : <><Icon name="inspector-off" size={13} /> Inspector off</>}
+          {inspector ? (
+            <>
+              <Icon name="inspector-on" size={13} /> Inspector on
+            </>
+          ) : (
+            <>
+              <Icon name="inspector-off" size={13} /> Inspector off
+            </>
+          )}
         </button>
-        <button className="btn secondary small" onClick={() => setNonce((n) => n + 1)}>
+        <button
+          className="btn secondary small"
+          onClick={() => {
+            setNonce((n) => n + 1);
+            resolveTarget();
+          }}
+        >
           <Icon name="reload" size={13} /> Reload
         </button>
-        <a className="btn secondary small" href={src} target="_blank" rel="noreferrer">
-          Open <Icon name="open-external" size={12} />
-        </a>
+        {src && (
+          <a className="btn secondary small" href={src} target="_blank" rel="noreferrer">
+            Open <Icon name="open-external" size={12} />
+          </a>
+        )}
       </div>
-      <iframe
-        key={nonce}
-        ref={iframeRef}
-        className="preview-frame"
-        src={src}
-        title="Live preview"
-      />
+
+      {error && <p className="error-text">{error}</p>}
+
+      {target && (target.mode === 'orphan' || target.mode === 'unroutable') && (
+        <NothingToRender target={target} />
+      )}
+
+      {src && (
+        <>
+          {instrumented === 0 && (
+            <p className="help-text">
+              <Icon name="warning" size={12} /> This page loaded but carries no{' '}
+              <code>data-ondros-*</code> attributes, so nothing can be selected or edited in
+              place. See Settings → Code Sync for the markup contract.
+            </p>
+          )}
+          <iframe
+            key={nonce}
+            ref={iframeRef}
+            className="preview-frame"
+            src={src}
+            title="Live preview"
+          />
+        </>
+      )}
+
+      {!src && !target && !error && <p className="muted">Resolving preview URL…</p>}
+
       {/* Same-origin fallback wiring; idle when the iframe is cross-origin
-          (then preview's InlineEditingBridge + postMessage handle it). */}
+          (then the site's ondros-editor.js bridge + postMessage handle it). */}
       <InlineEditorOverlay
         iframeRef={iframeRef}
         onFieldSelected={onFieldSelected}
@@ -121,5 +245,63 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
     </div>
   );
 });
+
+/** No repository connected: the pane has nothing it could legitimately show. */
+function NotConnected({ state, spaceId }: { state: CodeSyncState; spaceId: string }) {
+  const installHref = state.install_url
+    ? `${state.install_url}${state.install_url.includes('?') ? '&' : '?'}state=${spaceId}`
+    : '';
+  return (
+    <div>
+      <div className="row" style={{ marginBottom: 8 }}>
+        <strong>Live preview</strong>
+        <span className="spacer" />
+      </div>
+      <div className="card" style={{ textAlign: 'center', padding: '32px 20px' }}>
+        <div style={{ marginBottom: 10 }}>
+          <Icon name="github" size={30} />
+        </div>
+        <h2 style={{ margin: '0 0 6px' }}>Connect with GitHub for preview</h2>
+        <p className="muted" style={{ maxWidth: 420, margin: '0 auto 14px' }}>
+          Previews render your own pages and components from the repository that builds this
+          site. Connect one and this pane shows the real page, with every field editable in
+          place.
+        </p>
+        {state.configured && state.mode === 'app' && installHref ? (
+          <a className="btn" href={installHref}>
+            <Icon name="github" size={14} /> Connect with GitHub
+          </a>
+        ) : (
+          <Link className="btn" href="/settings/code-sync">
+            <Icon name="code-sync" size={14} /> Set up Code Sync
+          </Link>
+        )}
+        {!state.configured && (
+          <p className="help-text" style={{ marginTop: 12 }}>
+            Code Sync isn&apos;t configured on this server yet — an operator needs to register
+            the GitHub App first.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Connected, but this particular entry has no page that could render it. */
+function NothingToRender({ target }: { target: PreviewTarget }) {
+  return (
+    <div className="card" style={{ padding: 20 }}>
+      <div className="row" style={{ marginBottom: 6 }}>
+        <Icon name="warning" size={15} />
+        <strong>
+          {target.mode === 'unroutable' ? 'This entry has no URL yet' : 'Not used on any page yet'}
+        </strong>
+      </div>
+      <p className="muted" style={{ margin: 0 }}>
+        {target.message}
+      </p>
+    </div>
+  );
+}
 
 export default LivePreviewPane;

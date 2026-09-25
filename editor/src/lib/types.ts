@@ -408,3 +408,89 @@ export function withLocalizedValue(
   map[locale] = value;
   return map;
 }
+
+// --- Ondros Code Sync (spec 020) --------------------------------------------
+
+export interface CodeSyncComponent {
+  id: string;
+  title: string;
+  /** api_id of the content type this component renders. */
+  contentType: string;
+  block: string;
+  template: string;
+  fields: { name: string; label: string; component: string }[];
+  source: string;
+}
+
+export interface CodeSyncManifest {
+  previewUrl: string;
+  /** content type api_id -> route template, e.g. "/blog/{slug}". */
+  routes: Record<string, string>;
+  components: CodeSyncComponent[];
+}
+
+export interface CodeSyncConnection {
+  id: string;
+  space_id: string;
+  provider: string;
+  installation_id: string;
+  account_login: string;
+  repo_full_name: string;
+  branch: string;
+  preview_base_url: string;
+  manifest: CodeSyncManifest;
+  manifest_source: string;
+  manifest_path: string;
+  status: 'pending' | 'connected' | 'error' | string;
+  last_error: string;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CodeSyncState {
+  connected: boolean;
+  /** False when the *server* has no GitHub App configured at all. */
+  configured: boolean;
+  mode: 'app' | 'token' | 'none' | string;
+  install_url: string;
+  app_slug: string;
+  connection: CodeSyncConnection | null;
+}
+
+export interface CodeSyncRepository {
+  fullName: string;
+  name: string;
+  private: boolean;
+  defaultBranch: string;
+  htmlUrl: string;
+  owner: string;
+}
+
+export interface CodeSyncSyncResult {
+  status: string;
+  manifest_source: string;
+  manifest_path: string;
+  components: number;
+  unmapped_content_types: string[];
+  unknown_content_types: string[];
+  error: string;
+}
+
+/**
+ * Where the editor should point the preview iframe for one entry.
+ * `page` renders the entry's own URL; `component` renders a page that
+ * references it, with that component highlighted; `orphan` and `unroutable`
+ * mean there is nothing to render yet, and carry a message explaining why.
+ */
+export interface PreviewTarget {
+  mode: 'page' | 'component' | 'orphan' | 'unroutable' | string;
+  url: string;
+  path: string;
+  content_type: string;
+  component_id: string;
+  focus_entry_id: string;
+  host_entry_id: string;
+  host_title: string;
+  message: string;
+}

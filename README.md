@@ -84,6 +84,7 @@ curl "http://localhost:8000/spaces/<spaceId>/environments/master/delivery/entrie
 | API keys       | `delivery` (published only), `preview` (drafts too), `management` (space CRUD); hashed at rest, environment-scopable, shown once |
 | Roles          | ORG_ADMIN, SPACE_ADMIN, EDITOR, AUTHOR, VIEWER (+ custom roles), assigned org-wide or per space; capability checks on every endpoint |
 | Webhooks       | per-space, event + content-type + environment filters, HMAC-signed (`X-CMS-Signature`), delivery log in the UI |
+| Code Sync      | a GitHub App connects a space to the repo that renders its site; the preview loads **your** deployed pages and edits them in place (Adobe Universal Editor style), page-wise and component-wise — see [docs/20-code-sync.md](docs/20-code-sync.md) |
 
 ## The three API planes
 
