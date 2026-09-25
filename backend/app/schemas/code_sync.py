@@ -41,6 +41,9 @@ class ConnectionOut(BaseModel):
     repo_full_name: str
     branch: str
     preview_base_url: str
+    # The site copies this into ONDROS_PREVIEW_SECRET to verify preview
+    # tickets. Only ever returned to an authenticated space admin.
+    preview_secret: str = ""
     manifest: ManifestOut
     manifest_source: str
     manifest_path: str
@@ -115,6 +118,9 @@ class PreviewTargetOut(BaseModel):
     host_entry_id: str = ""
     host_title: str = ""
     message: str = ""
+    # Short-lived signed ticket authorizing the site to render drafts. Empty
+    # for modes with no URL, and for a connection with no secret yet.
+    preview_token: str = ""
 
 
 class DeliveryCodeSyncOut(BaseModel):

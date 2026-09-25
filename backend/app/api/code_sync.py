@@ -36,6 +36,7 @@ from app.api.deps import (
 from app.config import get_settings
 from app.core import code_sync as manifests
 from app.core import github_app
+from app.core import preview_ticket
 from app.core.audit import record_audit
 from app.core.permissions import Capability
 from app.core.validation import collect_linked_ids
@@ -95,16 +96,26 @@ async def _require_connection(db: AsyncSession, space_id: uuid.UUID) -> CodeSync
     return conn
 
 
-def _state(conn: CodeSyncConnection | None) -> CodeSyncStateOut:
+def _state(conn: CodeSyncConnection | None, *, with_secret: bool = False) -> CodeSyncStateOut:
+    """Feature state for the editor.
+
+    ``with_secret`` gates the preview secret, which is a credential: anyone
+    holding it can mint tickets and read every draft in the space. Only actors
+    who may manage the connection see it, so an author reading this endpoint
+    to find out whether preview works does not also receive it.
+    """
     settings = get_settings()
     mode = settings.code_sync_mode
+    out = ConnectionOut.model_validate(conn) if conn else None
+    if out is not None and not with_secret:
+        out.preview_secret = ""
     return CodeSyncStateOut(
         connected=bool(conn and conn.is_connected),
         configured=mode != "none",
         mode=mode,
         install_url=github_app.install_url() if mode == "app" else "",
         app_slug=settings.github_app_slug if mode == "app" else "",
-        connection=ConnectionOut.model_validate(conn) if conn else None,
+        connection=out,
     )
 
 
@@ -182,7 +193,9 @@ async def get_code_sync(
 ):
     space = await get_space(space_id, db, actor)
     ensure_can(actor, Capability.READ_CONTENT.value, space.id)
-    return _state(await _get_connection(db, space_id))
+    return _state(
+        await _get_connection(db, space_id), with_secret=actor.can(_MANAGE, space.id)
+    )
 
 
 @router.get("/spaces/{space_id}/code-sync/repositories", response_model=list[RepositoryOut])
@@ -227,6 +240,8 @@ async def connect(
             tenant_id=actor.tenant_id, space_id=space_id, created_by=actor.user_id
         )
         db.add(conn)
+    if not conn.preview_secret:
+        conn.preview_secret = preview_ticket.generate_secret()
     conn.repo_full_name = payload.repo_full_name
     conn.branch = payload.branch
     conn.installation_id = payload.installation_id or conn.installation_id
@@ -242,7 +257,7 @@ async def connect(
                  diff={"repo": conn.repo_full_name, "branch": conn.branch}, space_id=space_id)
     await db.commit()
     await db.refresh(conn)
-    return _state(conn)
+    return _state(conn, with_secret=True)
 
 
 @router.patch("/spaces/{space_id}/code-sync", response_model=CodeSyncStateOut)
@@ -261,7 +276,7 @@ async def update_connection(
         conn.preview_base_url = payload.preview_base_url.rstrip("/")
     await db.commit()
     await db.refresh(conn)
-    return _state(conn)
+    return _state(conn, with_secret=True)
 
 
 @router.post("/spaces/{space_id}/code-sync/sync", response_model=SyncResult)
@@ -341,6 +356,19 @@ async def preview_target(
     component = conn.components_by_content_type.get(api_id, {})
     base = conn.preview_base_url.rstrip("/")
 
+    # Authorizes the site to render drafts for this request only. Minted here
+    # because this endpoint already proved the caller may read the space; the
+    # ticket expires in minutes, so a shared preview URL stops working.
+    ticket = (
+        preview_ticket.mint(
+            conn.preview_secret,
+            environment=env.key,
+            subject=str(getattr(actor, "user_id", "") or ""),
+        )
+        if conn.preview_secret
+        else ""
+    )
+
     def _page(host: Entry, focus: Entry | None) -> PreviewTargetOut:
         path = manifests.route_for(conn.manifest, host.content_type.api_id, host.slug or "")
         return PreviewTargetOut(
@@ -352,6 +380,7 @@ async def preview_target(
             focus_entry_id=str(focus.id) if focus else "",
             host_entry_id=str(host.id),
             host_title=host.slug or host.content_type.name,
+            preview_token=ticket,
         )
 
     if entry.content_type.slug_field:
@@ -523,6 +552,8 @@ async def github_callback(
                 if conn is None:
                     conn = CodeSyncConnection(tenant_id=space.tenant_id, space_id=space_id)
                     db.add(conn)
+                if not conn.preview_secret:
+                    conn.preview_secret = preview_ticket.generate_secret()
                 conn.installation_id = installation_id
                 if not conn.repo_full_name:
                     conn.status = CodeSyncStatus.pending

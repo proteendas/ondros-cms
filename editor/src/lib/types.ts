@@ -438,6 +438,12 @@ export interface CodeSyncConnection {
   repo_full_name: string;
   branch: string;
   preview_base_url: string;
+  /**
+   * Shared secret the connected site verifies preview tickets with. Empty
+   * unless the reader may manage the connection — it mints tickets for every
+   * draft in the space, so it is a credential, not a setting.
+   */
+  preview_secret: string;
   manifest: CodeSyncManifest;
   manifest_source: string;
   manifest_path: string;
@@ -493,4 +499,10 @@ export interface PreviewTarget {
   host_entry_id: string;
   host_title: string;
   message: string;
+  /**
+   * Short-lived signed ticket the site verifies before it renders drafts.
+   * Passed as `?ondros-preview=<token>`; without it the site serves its
+   * published content, so a shared preview URL leaks nothing.
+   */
+  preview_token: string;
 }

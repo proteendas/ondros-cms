@@ -55,6 +55,11 @@ class CodeSyncConnection(Base):
     # value set in the editor wins, because branch deploys move around.
     preview_base_url: Mapped[str] = mapped_column(String(500), default="")
 
+    # Shared secret the site uses to verify a preview ticket (see
+    # app/core/preview_ticket.py). Generated on connect; without it the site
+    # cannot tell an editor preview from a stranger with the URL.
+    preview_secret: Mapped[str] = mapped_column(String(80), default="")
+
     # Normalized manifest: {"routes": {...}, "components": [...], ...}
     manifest: Mapped[dict] = mapped_column(JSONB, default=dict)
     manifest_source: Mapped[str] = mapped_column(String(30), default="")  # ondros | aem | ""

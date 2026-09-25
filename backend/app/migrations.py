@@ -59,6 +59,7 @@ DDL_STATEMENTS = [
     # --- Code Sync (spec 020): columns added after the table shipped.
     "ALTER TABLE code_sync_connections ADD COLUMN IF NOT EXISTS manifest_path VARCHAR(300) DEFAULT ''",
     "ALTER TABLE code_sync_connections ADD COLUMN IF NOT EXISTS preview_base_url VARCHAR(500) DEFAULT ''",
+    "ALTER TABLE code_sync_connections ADD COLUMN IF NOT EXISTS preview_secret VARCHAR(80) DEFAULT ''",
     # --- Platform admin (spec 013): operator flag + account suspension.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_platform_admin BOOLEAN DEFAULT FALSE",
     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active'",
@@ -85,6 +86,15 @@ RLS_STATEMENTS = (
 )
 # Backfills run after DDL. Each is independent and idempotent.
 BACKFILL_STATEMENTS = [
+    # Every existing connection needs a preview secret: without one the site
+    # has nothing to verify a preview ticket against, so its editor preview
+    # would silently fall back to published content. The customer copies this
+    # value into their site's ONDROS_PREVIEW_SECRET.
+    """
+    UPDATE code_sync_connections
+    SET preview_secret = 'ondros_pv_' || replace(replace(encode(gen_random_bytes(32), 'base64'), '+', '-'), '/', '_')
+    WHERE preview_secret IS NULL OR preview_secret = ''
+    """,
     # One "master" environment per space that has none yet.
     """
     INSERT INTO environments (id, tenant_id, space_id, key, name, type, is_default, created_at)

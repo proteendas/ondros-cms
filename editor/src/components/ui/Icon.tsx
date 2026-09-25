@@ -63,6 +63,9 @@ export const ICONS = {
   'sidebar-expand': 'arrows-expand-vertical',
   'inspector-on': 'eye',
   'inspector-off': 'eye-slash',
+  'reveal-secret': 'eye',
+  'conceal-secret': 'eye-slash',
+  copy: 'clipboard',
   // AI
   generate: 'stars',
   'suggest-titles': 'lightbulb',

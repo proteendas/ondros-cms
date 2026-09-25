@@ -6,10 +6,13 @@ supported repository layouts are exercised directly.
 import pytest
 
 from app.core import code_sync as manifests
+from app.core import preview_ticket
 from app.models.code_sync import CodeSyncConnection, CodeSyncStatus
 from tests.conftest import DELIVERY_TOKEN, auth
 
 pytestmark = pytest.mark.asyncio
+
+PREVIEW_SECRET = "ondros_pv_test-secret"
 
 
 ONDROS_MANIFEST = """
@@ -181,6 +184,7 @@ async def _connect(db_maker, ws, manifest: dict | None = None) -> None:
                 repo_full_name="acme/site",
                 branch="main",
                 preview_base_url="https://site.example.com",
+                preview_secret=PREVIEW_SECRET,
                 manifest=manifest
                 or {
                     "previewUrl": "https://site.example.com",
@@ -407,3 +411,89 @@ def test_private_key_rejects_something_that_is_not_a_key(monkeypatch):
         assert ".pem file" in str(exc.value)
     finally:
         get_settings.cache_clear()
+
+
+# ---- Preview tickets -----------------------------------------------------
+#
+# A preview renders unpublished content, so the URL that triggers it is a
+# credential. These cover the ways a flag-based gate went wrong: the URL being
+# shared, kept, or pointed at another environment.
+
+
+async def test_preview_target_hands_the_editor_a_signed_ticket(client, workspace, db_maker):
+    ws = workspace
+    await _connect(db_maker, ws)
+    entry = await _create_entry(client, ws, ws["article_ct"], {"slug": "hello"})
+    res = await client.get(
+        f"/spaces/{ws['space'].id}/environments/master/code-sync/preview-target"
+        f"?entry_id={entry['id']}",
+        headers=auth(ws["tokens"]["ORG_ADMIN"]),
+    )
+    token = res.json()["preview_token"]
+    assert token, "the editor has nothing to authenticate the preview with"
+
+    payload = preview_ticket.verify(PREVIEW_SECRET, token, environment="master")
+    assert payload is not None
+    assert payload["env"] == "master"
+    assert payload["exp"] > payload["iat"]
+
+
+def test_a_ticket_is_worthless_without_the_secret():
+    """The whole point: holding the URL is not holding the credential."""
+    token = preview_ticket.mint(PREVIEW_SECRET, environment="master")
+    assert preview_ticket.verify("ondros_pv_some-other-space", token) is None
+    assert preview_ticket.verify("", token) is None
+
+
+def test_an_expired_ticket_is_refused():
+    """A preview URL pasted into a chat stops working."""
+    now = 1_800_000_000
+    token = preview_ticket.mint(PREVIEW_SECRET, ttl_seconds=60, now=now)
+    assert preview_ticket.verify(PREVIEW_SECRET, token, now=now + 30) is not None
+    assert preview_ticket.verify(PREVIEW_SECRET, token, now=now + 600) is None
+
+
+def test_a_tampered_ticket_is_refused():
+    """Editing the expiry in the URL must invalidate the signature."""
+    import base64
+    import json
+
+    now = 1_800_000_000
+    token = preview_ticket.mint(PREVIEW_SECRET, ttl_seconds=60, now=now)
+    body, _, signature = token.partition(".")
+    forged = json.loads(base64.urlsafe_b64decode(body + "=="))
+    forged["exp"] = now + 10**9
+    rebuilt = base64.urlsafe_b64encode(json.dumps(forged).encode()).decode().rstrip("=")
+    assert preview_ticket.verify(PREVIEW_SECRET, f"{rebuilt}.{signature}", now=now) is None
+
+
+def test_a_ticket_does_not_cross_environments():
+    """A staging preview URL must not unlock master's drafts."""
+    token = preview_ticket.mint(PREVIEW_SECRET, environment="staging")
+    assert preview_ticket.verify(PREVIEW_SECRET, token, environment="staging") is not None
+    assert preview_ticket.verify(PREVIEW_SECRET, token, environment="master") is None
+
+
+@pytest.mark.parametrize("ticket", ["", None, "1", "not-a-ticket", "a.b", "....", "x." * 50])
+def test_garbage_is_refused_rather_than_crashing(ticket):
+    """Including the literal `1` the old flag-based URLs carried."""
+    assert preview_ticket.verify(PREVIEW_SECRET, ticket) is None
+
+
+async def test_the_preview_secret_is_not_shown_to_someone_who_cannot_manage_it(
+    client, workspace, db_maker
+):
+    """It mints tickets for every draft in the space, so it is a credential."""
+    ws = workspace
+    await _connect(db_maker, ws)
+
+    admin = await client.get(
+        f"/spaces/{ws['space'].id}/code-sync", headers=auth(ws["tokens"]["ORG_ADMIN"])
+    )
+    assert admin.json()["connection"]["preview_secret"] == PREVIEW_SECRET
+
+    viewer = await client.get(
+        f"/spaces/{ws['space'].id}/code-sync", headers=auth(ws["tokens"]["VIEWER"])
+    )
+    assert viewer.status_code == 200
+    assert viewer.json()["connection"]["preview_secret"] == ""

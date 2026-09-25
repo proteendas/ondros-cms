@@ -182,7 +182,9 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
     if (!target?.url) return '';
     try {
       const url = new URL(target.url);
-      url.searchParams.set('ondros-preview', '1');
+      // The ticket is the authorization, not the flag: anyone can type
+      // ?ondros-preview=1, so the site only trusts a signature it can verify.
+      url.searchParams.set('ondros-preview', target.preview_token || '1');
       if (locale) url.searchParams.set('ondros-locale', locale);
       if (target.focus_entry_id) url.searchParams.set('ondros-focus', target.focus_entry_id);
       if (environmentKey) url.searchParams.set('ondros-environment', environmentKey);

@@ -286,6 +286,8 @@ function CodeSyncPageInner() {
             )}
           </div>
 
+          {conn.preview_secret && <PreviewSecret secret={conn.preview_secret} />}
+
           {sync && <SyncReport result={sync} />}
           <ComponentTable
             components={conn.manifest?.components ?? []}
@@ -538,6 +540,55 @@ function SiteSetup() {
         The script no-ops unless the page is open inside the editor, so it is safe to ship in
         production. Full contract: <code>docs/20-code-sync.md</code>.
       </p>
+    </div>
+  );
+}
+
+
+/**
+ * The preview secret, which the customer copies into their site.
+ *
+ * A preview renders unpublished content, so the URL that opens one is a
+ * credential — before this existed, `?ondros-preview=1` was enough for anyone
+ * holding the link to read every draft in the space. The site verifies a
+ * signed ticket against this secret instead; a site that has not been given it
+ * serves its published content to the editor, which is the safe direction to
+ * fail but looks like "my edits do not show up", so it is called out here.
+ */
+function PreviewSecret({ secret }: { secret: string }) {
+  const [shown, setShown] = useState(false);
+  const toast = useToast();
+  return (
+    <div className="panel" style={{ marginTop: 14 }}>
+      <h2 style={{ marginTop: 0 }}>Preview secret</h2>
+      <p className="help-text" style={{ marginTop: 0 }}>
+        Set this as <code>ONDROS_PREVIEW_SECRET</code> in your site&apos;s environment.
+        It is what lets your site tell an editor preview from a stranger with the URL,
+        so keep it out of the repository. Without it your site shows the editor its
+        published content and drafts never appear.
+      </p>
+      <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+        <input
+          className="input mono"
+          readOnly
+          type={shown ? 'text' : 'password'}
+          value={secret}
+          onFocus={(e) => e.currentTarget.select()}
+        />
+        <button className="btn secondary small" onClick={() => setShown((v) => !v)}>
+          <Icon name={shown ? 'conceal-secret' : 'reveal-secret'} size={13} />{' '}
+          {shown ? 'Hide' : 'Show'}
+        </button>
+        <button
+          className="btn secondary small"
+          onClick={() => {
+            navigator.clipboard?.writeText(secret);
+            toast('Preview secret copied');
+          }}
+        >
+          <Icon name="copy" size={13} /> Copy
+        </button>
+      </div>
     </div>
   );
 }

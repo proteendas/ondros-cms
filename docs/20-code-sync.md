@@ -238,6 +238,82 @@ including links nested in repeatable groups and rich text.
 
 ---
 
+## Authorizing a preview
+
+A preview renders **unpublished** content, so the URL that opens one is a
+credential. Ondros used to say so with a flag — `?ondros-preview=1` — which
+meant anyone who was sent a preview link, or found one in a referrer log, a
+chat message or browser history, could read every draft in the space.
+
+Instead the editor passes a short-lived **signed ticket**:
+
+```
+https://your-site.example.com/articles/hello
+  ?ondros-preview=eyJlbnYiOiJtYXN0ZXIiLCJleHAiOjE4MDAwMDE4MDAsImlhdCI6MTgwMDAwMDAwMH0.A63RRYSL…
+  &ondros-locale=en-US
+  &ondros-environment=master
+```
+
+`preview-target` mints it — that endpoint already requires an authenticated
+actor with `read_content` on the space — and returns it as `preview_token`.
+It is `base64url(payload).base64url(hmac-sha256)`, where the payload carries
+`iat`, `exp`, the environment and the acting user id, and the signature is
+made with the connection's **preview secret**.
+
+Your site verifies it and renders drafts only if it checks out. A ticket that
+is missing, malformed, expired, signed with another space's secret, or minted
+for a different environment simply is not a preview: the page renders its
+published content, as it would for any other visitor. Failing that direction
+means a stale link degrades to an ordinary page rather than an error.
+
+Tickets last **30 minutes**. They cannot be revoked early, which is the price
+of a site that can verify them without calling back to the CMS on every
+render — so the lifetime is short rather than the check being clever.
+
+### Giving your site the secret
+
+Settings → Code Sync shows the preview secret once a space is connected. Copy
+it into your site's environment:
+
+```bash
+ONDROS_PREVIEW_SECRET=ondros_pv_…
+```
+
+Treat it like the preview API key it guards: never commit it, and never expose
+it as `NEXT_PUBLIC_*` — a secret in the browser bundle is not a secret. Only
+someone who can manage the connection (`manage_settings`) can read it from the
+API; an author loading the same endpoint gets an empty string.
+
+**A site with no secret set shows the editor published content.** That is the
+safe failure, but it looks like "my drafts do not appear", so it is worth
+checking first when a preview seems stale.
+
+### Verifying a ticket
+
+Ten lines in any language — the reference implementation is
+`backend/app/core/preview_ticket.py` (`verify`), and a TypeScript copy ships
+in the demo site at `src/lib/preview-ticket.ts`:
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+const b64 = (v: string) => Buffer.from(v.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+
+export function verifyPreviewTicket(ticket: string, secret: string) {
+  const [body, signature] = ticket.split(".");
+  const expected = createHmac("sha256", secret).update(body, "ascii").digest();
+  const given = b64(signature);
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  const payload = JSON.parse(b64(body).toString("utf8"));
+  return payload.exp >= Math.floor(Date.now() / 1000) - 60 ? payload : null;
+}
+```
+
+Compare the signature with a constant-time function, and check `exp` — a
+signature check alone would make a leaked link valid forever.
+
+---
+
 ## Setting it up
 
 ### Register the GitHub App (once per deployment)
@@ -333,6 +409,8 @@ browser.
 | "Nothing to map" | The branch has no manifest, no `blocks/` directory, and the environment has no content types |
 | Sync reports `derived` | No manifest was committed — the mapping came from conventions. Commit one to override routes or block names |
 | Preview loads but nothing is selectable | The page is missing `data-ondros-*` attributes — the editor warns about this explicitly |
+| Preview loads but always shows published content | The site has no `ONDROS_PREVIEW_SECRET`, or it does not match Settings → Code Sync, so every ticket fails to verify |
+| Preview showed drafts, then stopped after ~30 min | The ticket expired; reopening the entry mints a new one |
 | "No page references this … yet" | A block that no page uses; add it to a page |
 | "This entry has no URL yet" | A page whose slug field is still blank |
 | Sync says a content type is unmapped | Add a component for it, or the preview will render an empty page |
