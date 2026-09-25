@@ -12,10 +12,9 @@
  * Shared by the split-view pane and the full-screen /preview route so both
  * offer the same sizes.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import Icon, { IconName } from '@/components/ui/Icon';
-import Select from '@/components/ui/Select';
 
 export interface PreviewDevice {
   id: string;
@@ -46,28 +45,39 @@ export function findDevice(id: string): PreviewDevice {
  * Only ever scales down: blowing a 390px layout up to fill a wide pane would
  * show the author something no device renders.
  */
+export type StageRef = (el: HTMLDivElement | null) => void;
+
 export function useDeviceScale(
   device: PreviewDevice,
   landscape: boolean,
 ): {
-  stageRef: React.RefObject<HTMLDivElement>;
+  stageRef: StageRef;
   width: number | null;
   height: number | null;
   scale: number;
 } {
-  const stageRef = useRef<HTMLDivElement>(null);
+  // A callback ref, not useRef: the stage only mounts once a preview URL has
+  // resolved, so an effect keyed on [] would run while the element is still
+  // null, observe nothing, and never retry — leaving scale pinned at 1 and
+  // every viewport wider than the pane overflowing it.
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const stageRef = useCallback((el: HTMLDivElement | null) => setNode(el), []);
   const [box, setBox] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
+    if (!node) return;
+    // Seed from the current box: ResizeObserver only fires on the next frame,
+    // and the first paint should already be at the right scale.
+    const rect = node.getBoundingClientRect();
+    setBox({ width: rect.width, height: rect.height });
+
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
       setBox({ width, height });
     });
-    observer.observe(el);
+    observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [node]);
 
   if (device.width === null || device.height === null) {
     return { stageRef, width: null, height: null, scale: 1 };
@@ -82,7 +92,7 @@ export function useDeviceScale(
   return { stageRef, width, height, scale };
 }
 
-/** Device dropdown + rotate button, for a preview toolbar. */
+/** Segmented device buttons + rotate, for a preview toolbar. */
 export function DeviceControls({
   deviceId,
   landscape,
@@ -105,14 +115,24 @@ export function DeviceControls({
 
   return (
     <>
-      <Select
-        variant="toolbar"
-        ariaLabel="Preview viewport size"
-        value={deviceId}
-        onChange={onDevice}
-        options={DEVICES.map((d) => ({ value: d.id, label: d.label, icon: d.icon }))}
-        style={{ maxWidth: 170 }}
-      />
+      {/* A row of device buttons rather than a dropdown: the choice is small,
+          switching is the whole point, and a browser's device bar is the
+          convention people already know. */}
+      <span className="device-switch" role="group" aria-label="Preview viewport size">
+        {DEVICES.map((d) => (
+          <button
+            key={d.id}
+            type="button"
+            className={d.id === deviceId ? 'active' : undefined}
+            onClick={() => onDevice(d.id)}
+            title={d.label}
+            aria-label={d.label}
+            aria-pressed={d.id === deviceId}
+          >
+            <Icon name={d.icon} size={14} />
+          </button>
+        ))}
+      </span>
       {device.rotatable && (
         <button
           className="btn secondary small"
@@ -144,7 +164,7 @@ export function DeviceStage({
   scale,
   children,
 }: {
-  stageRef: React.RefObject<HTMLDivElement>;
+  stageRef: StageRef;
   width: number | null;
   height: number | null;
   scale: number;

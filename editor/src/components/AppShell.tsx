@@ -276,19 +276,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               })}
             </div>
           ))}
-          {/* Desktop only (CSS): keeps the menu open instead of collapsing
-              back to the rail when the pointer leaves. */}
+          {/* Desktop only (CSS): locks the menu open instead of letting it
+              collapse back to the rail when the pointer leaves. */}
           <button
             type="button"
             className="nav-pin"
             onClick={toggleNavPinned}
             aria-pressed={navPinned}
-            title={navPinned ? 'Unpin the menu' : 'Keep the menu open'}
+            title={navPinned ? 'Collapse the menu back to icons' : 'Keep the menu expanded'}
           >
             <span className="nav-icon">
-              <Icon name={navPinned ? 'pin-filled' : 'pin'} size={15} />
+              <Icon name={navPinned ? 'sidebar-collapse' : 'sidebar-expand'} size={15} />
             </span>
-            <span className="nav-label">{navPinned ? 'Unpin menu' : 'Pin menu'}</span>
+            {/* The label describes what the click does. "Expand" would read as
+                wrong while hovering, when the menu is already expanded. */}
+            <span className="nav-label">{navPinned ? 'Collapse menu' : 'Keep expanded'}</span>
           </button>
           <div className="sidebar-foot">
             <Link href="/legal/privacy-policy">Privacy</Link>

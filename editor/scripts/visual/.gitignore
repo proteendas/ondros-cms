@@ -1,0 +1,4 @@
+# Screenshots the scripts write for eyeballing; regenerate by re-running them.
+*.png
+node_modules/
+package*.json

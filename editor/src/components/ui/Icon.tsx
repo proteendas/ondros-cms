@@ -59,8 +59,8 @@ export const ICONS = {
   'device-tablet': 'tablet',
   'device-mobile': 'phone',
   rotate: 'arrow-repeat',
-  pin: 'pin-angle',
-  'pin-filled': 'pin-angle-fill',
+  'sidebar-collapse': 'arrows-collapse-vertical',
+  'sidebar-expand': 'arrows-expand-vertical',
   'inspector-on': 'eye',
   'inspector-off': 'eye-slash',
   // AI

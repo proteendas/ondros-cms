@@ -250,7 +250,7 @@ export default function EntryEditorPage() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 10 }}>
+      <div className="page-header entry-topbar">
         <div>
           <h1 style={{ margin: 0 }}>
             {contentType.name}{' '}

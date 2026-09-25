@@ -131,7 +131,10 @@ pre.code-block {
 :root {
   --nav-rail: 60px;
   --nav-expanded: 232px;
-  --nav-pad-x: 21px;
+  /* The rail is 60 wide and the sidebar itself already insets content by 8px,
+     so an 18px icon centres at 8 + 13 + 9 = 30 = half the rail. Getting this
+     wrong is immediately visible as icons sitting off-centre. */
+  --nav-pad-x: 13px;
 }
 
 .sidebar {
@@ -528,12 +531,59 @@ table.list td.actions { text-align: right; white-space: nowrap; }
 /* Narrow pane: drop the meta line, then the button labels. Icons and their
    title attributes carry the meaning. */
 @container preview (max-width: 760px) {
-  .preview-toolbar /* AI tools inside the dialog: no card frame, and a cap so a long compliance
+  .preview-toolbar .preview-size { display: none; }
+}
+
+/* Entry editor header. Sticks under the topbar: the form is long, and having
+   to scroll back up to reach AI, History or Publish was the complaint. */
+.entry-topbar {
+  position: sticky;
+  top: 52px;
+  z-index: 25;
+  background: var(--bg);
+  padding: 10px 0;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+@media (max-width: 900px) {
+  /* The mobile topbar is taller and not a fixed height, so pinning the entry
+     header under it would guess wrong; let it scroll instead. */
+  .entry-topbar { position: static; }
+}
+
+/* Viewport switcher: a segmented icon control, like a browser's device bar. */
+.device-switch {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  flex: none;
+}
+.device-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 0 8px;
+  border: none;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+.device-switch button + button { border-left: 1px solid var(--border); }
+.device-switch button:hover { background: var(--surface-2); color: var(--text); }
+.device-switch button.active { background: var(--primary-soft); color: var(--primary); }
+
+/* AI tools inside the dialog: no card frame, and a cap so a long compliance
    report scrolls rather than pushing the dialog past the viewport. */
 .ai-panel { max-height: min(70vh, 640px); overflow-y: auto; padding-right: 4px; }
 
 /* Full-screen preview route (/preview). */
-.preview-page { display: flex; flex-direction: column; height: 100dvh; background: var(--surface-2); }
+.preview-page { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; background: var(--surface-2); }
 .preview-page-bar {
   display: flex;
   align-items: center;
@@ -543,13 +593,33 @@ table.list td.actions { text-align: right; white-space: nowrap; }
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.preview-page-body { flex: 1; min-height: 0; padding: 12px; overflow: auto; }
-.preview-page-body .preview-stage { height: 100%; }
-.preview-page-body .preview-stage.framed { height: 100%; min-height: 0; border: none; background: none; }
-.preview-page-body .preview-frame { height: 100%; }
-
-.preview-size { display: none; }
+.preview-page-body { flex: 1; min-height: 0; display: flex; padding: 12px; }
+/* The height chain has to be explicit the whole way down, or the iframe keeps
+   its default calc(100vh - 190px) and leaves a band of empty page beneath it.
+   `height: 100%` is not enough: the stage is an auto-height flex item, so a
+   percentage on its child has nothing definite to resolve against. Flexing the
+   iframe instead makes it fill whatever the stage actually got. */
+.preview-page-body .preview-stage { flex: 1; min-height: 0; height: auto; display: flex; }
+.preview-page-body .preview-stage:not(.framed) > .preview-frame {
+  flex: 1;
+  height: auto;
+  min-height: 0;
 }
+.preview-page-body .preview-stage.framed {
+  height: auto;
+  min-height: 0;
+  border: none;
+  background: none;
+  padding: 0;
+}
+.preview-page-body .preview-frame {
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.preview-page-body .preview-viewport .preview-frame { border: none; border-radius: 0; }
+
 @container preview (max-width: 620px) {
   .preview-toolbar .pt-meta { display: none; }
 }

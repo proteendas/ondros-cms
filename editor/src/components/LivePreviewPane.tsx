@@ -220,7 +220,6 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
             scale={scale}
             onDevice={selectDevice}
             onRotate={rotate}
-            compact
           />
           <button
             className="btn secondary small"
