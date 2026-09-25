@@ -238,11 +238,20 @@ including links nested in repeatable groups and rich text.
 
 1. **GitHub → Settings → Developer settings → GitHub Apps → New GitHub App.**
 2. Name it `Ondros Code Sync` (the slug becomes `GITHUB_APP_SLUG`).
-3. **Callback URL**: `https://cms.example.com/code-sync/github/callback`
+3. **Setup URL** (under *Post installation*):
+   `https://cms.example.com/code-sync/github/callback`
+   The form calls this optional; for Ondros it is **required** — it is where
+   GitHub sends the new `installation_id`, and without it an install never
+   reaches the CMS. There is no field called "Callback URL": the *Redirect URI*
+   above it belongs to the user-authorization (OAuth) flow, which Ondros does
+   not use. Leave it blank and leave *Request user authorization (OAuth) during
+   installation* unchecked.
 4. **Webhook URL**: `https://cms.example.com/code-sync/github/webhook`,
    with a secret you keep.
-5. **Permissions**: Repository → *Contents: Read-only*, *Metadata: Read-only*.
-6. **Subscribe to events**: `Push`, `Installation`.
+5. **Permissions**: Repository → *Contents: Read-only* (this also reveals the
+   `Push` event), *Metadata: Read-only* (mandatory, selected for you).
+6. **Subscribe to events**: `Push`. `Installation` is not in the list because
+   GitHub delivers installation events to every App automatically.
 7. Generate a private key and set the backend's environment:
 
 ```bash
@@ -271,8 +280,10 @@ only what the customer granted.
 
 1. **Settings → Code Sync → Connect with GitHub**, install the App on the
    repository that builds the site.
-2. GitHub returns to the callback, which records the installation against the
-   space (carried in `state`) and bounces back to the editor.
+2. GitHub returns to the **Setup URL**, which records the installation against
+   the space (carried in `state`, which GitHub preserves from the install
+   link) and bounces back to `{FRONTEND_URL}/settings/code-sync` — so
+   `FRONTEND_URL` must point at your editor app.
 3. Choose the repository and branch. Ondros reads the manifest immediately and
    reports what it found.
 
@@ -299,7 +310,7 @@ than deleting content.
 | `GET` | `/spaces/{id}/environments/{env}/code-sync/preview-target?entry_id=` | `read_content` |
 | `GET` | `/spaces/{id}/environments/{env}/delivery/code-sync` | delivery/preview API key |
 | `POST` | `/code-sync/github/webhook` | HMAC signature |
-| `GET` | `/code-sync/github/callback` | — (GitHub redirect) |
+| `GET` | `/code-sync/github/callback` | — (the App's Setup URL) |
 
 The delivery-plane endpoint lets a connected site read its own component
 mapping with the API key it already has, without management credentials in the
