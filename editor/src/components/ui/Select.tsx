@@ -30,7 +30,15 @@ export interface SelectOption {
   iconTitle?: string;
 }
 
-/** Visual contexts that exist in the app — see globals.css `.select-trigger`. */
+/**
+ * Visual contexts that exist in the app — see globals.css `.select-trigger`.
+ *
+ * The variant is rendered as `select-<variant>`, never as the bare name. The
+ * bare names collide with layout utilities that already exist in globals.css
+ * (`.toolbar`, `.input`), and those rules then apply to the trigger by
+ * accident — `.toolbar`'s `margin-bottom: 14px` pushed the richtext block-type
+ * picker 7px above the buttons beside it.
+ */
 export type SelectVariant = 'input' | 'chrome' | 'toolbar';
 
 const MENU_MAX_HEIGHT = 280;
@@ -255,7 +263,7 @@ export default function Select({
         aria-label={ariaLabel}
         title={title}
         disabled={disabled}
-        className={`select-trigger ${variant}${open ? ' open' : ''}${className ? ` ${className}` : ''}`}
+        className={`select-trigger select-${variant}${open ? ' open' : ''}${className ? ` ${className}` : ''}`}
         style={style}
         onClick={() => (open ? closeMenu() : openMenu())}
         onKeyDown={onKeyDown}

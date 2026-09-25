@@ -23,6 +23,7 @@ npm install playwright-core            # browsers come from the Playwright cache
 node sidebar.mjs                       # icon rail: centring, hover, pin
 node entry-page.mjs                    # preview toolbar, sticky header, AI dialog
 node preview.mjs                       # viewport scaling, /preview height
+node richtext-toolbar.mjs              # Select variants don't collide with layout classes
 ```
 
 `lib.mjs` points at a Playwright-cached Chromium headless shell. If you have

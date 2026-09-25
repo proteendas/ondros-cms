@@ -473,7 +473,7 @@ table.list td.actions { text-align: right; white-space: nowrap; }
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
 .toolbar .input { width: auto; min-width: 200px; }
 /* Dropdowns sit narrower than text inputs in filter bars (ui/Select.tsx). */
-.toolbar .select-trigger.input { width: auto; min-width: 140px; }
+.toolbar .select-trigger.select-input { width: auto; min-width: 140px; }
 
 /* ---- Entry editor layout --------------------------------------------------------- */
 
@@ -1013,22 +1013,22 @@ table.list td.actions { text-align: right; white-space: nowrap; }
 .select-trigger.open .select-caret { transform: rotate(180deg); }
 
 /* Form variant — matches `.input` exactly so mixed rows stay aligned. */
-.select-trigger.input {
+.select-trigger.select-input {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   font-size: 13.5px;
 }
-.select-trigger.input:hover:not(:disabled) { border-color: var(--text-3); }
-.select-trigger.input.open,
-.select-trigger.input:focus-visible {
+.select-trigger.select-input:hover:not(:disabled) { border-color: var(--text-3); }
+.select-trigger.select-input.open,
+.select-trigger.select-input:focus-visible {
   outline: 2px solid rgba(79, 70, 229, 0.22);
   border-color: var(--primary);
 }
 
 /* Chrome variant — the dark topbar space/env/account pickers. */
-.select-trigger.chrome {
+.select-trigger.select-chrome {
   background: transparent;
   border: none;
   padding: 0;
@@ -1036,12 +1036,12 @@ table.list td.actions { text-align: right; white-space: nowrap; }
   font-size: 13px;
   max-width: 190px;
 }
-.select-trigger.chrome:hover:not(:disabled) { color: #fff; }
-.select-trigger.chrome .select-caret { color: #64748b; }
-.select-trigger.chrome:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
+.select-trigger.select-chrome:hover:not(:disabled) { color: #fff; }
+.select-trigger.select-chrome .select-caret { color: #64748b; }
+.select-trigger.select-chrome:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
 
 /* Toolbar variant — compact, borderless, for the richtext toolbar. */
-.select-trigger.toolbar {
+.select-trigger.select-toolbar {
   border: 1px solid transparent;
   background: none;
   border-radius: 4px;
@@ -1050,9 +1050,9 @@ table.list td.actions { text-align: right; white-space: nowrap; }
   color: var(--text-2);
   gap: 5px;
 }
-.select-trigger.toolbar:hover:not(:disabled) { background: var(--border); color: var(--text); }
-.select-trigger.toolbar.open { background: var(--border); color: var(--text); }
-.select-trigger.toolbar:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.select-trigger.select-toolbar:hover:not(:disabled) { background: var(--border); color: var(--text); }
+.select-trigger.select-toolbar.open { background: var(--border); color: var(--text); }
+.select-trigger.select-toolbar:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 /* Popover listbox (portalled to <body>, positioned inline). */
 .select-menu {
@@ -1283,7 +1283,7 @@ table.list td.actions { text-align: right; white-space: nowrap; }
   .page-header .spacer { display: none; }
   .toolbar { gap: 8px; }
   .toolbar .input,
-  .toolbar .select-trigger.input { width: 100%; min-width: 0; flex: 1 1 100%; }
+  .toolbar .select-trigger.select-input { width: 100%; min-width: 0; flex: 1 1 100%; }
 
   /* Wide tables scroll horizontally instead of forcing the page to. */
   .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -1297,7 +1297,7 @@ table.list td.actions { text-align: right; white-space: nowrap; }
 
   /* Comfortable tap targets (iOS also stops auto-zooming at >=16px inputs). */
   .btn { min-height: 36px; }
-  .input, .select-trigger.input { font-size: 16px; }
+  .input, .select-trigger.select-input { font-size: 16px; }
 }
 
 /* ---- Status pages (404 / 403 / 500 / maintenance / payment results) -------- */
@@ -1417,7 +1417,7 @@ table.list td.actions { text-align: right; white-space: nowrap; }
     width: 100%;
     justify-content: space-between;
   }
-  .drawer-pickers .selector .select-trigger.chrome { max-width: 60%; }
+  .drawer-pickers .selector .select-trigger.select-chrome { max-width: 60%; }
 }
 
 /* Legal links pinned to the bottom of the sidebar. */

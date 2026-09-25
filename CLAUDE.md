@@ -44,9 +44,13 @@ with `aria-activedescendant`.
 
 ### Adding a new variant
 
-Add the case to `SelectVariant` and a matching `.select-trigger.<variant>`
-block in `globals.css`. Don't style a `Select` from the call site beyond
-layout (`style={{ maxWidth: … }}`) — visual treatment belongs in the variant
+Add the case to `SelectVariant` and a matching
+`.select-trigger.select-<variant>` block in `globals.css`. Mind the `select-`
+prefix — the trigger renders `class="select-trigger select-toolbar"`, never
+the bare variant name, because names like `toolbar` and `input` are already
+layout utilities in `globals.css` and would otherwise apply to the trigger by
+accident. Don't style a `Select` from the call site beyond layout
+(`style={{ maxWidth: … }}`) — visual treatment belongs in the variant
 so every dropdown of that kind stays identical.
 
 ---

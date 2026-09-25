@@ -56,9 +56,12 @@ with `aria-activedescendant` tracking the active one.
 | `disabled` | On the control, or per option |
 
 **Adding a variant:** extend `SelectVariant` and add a
-`.select-trigger.<variant>` block in `globals.css`. Don't style a `Select` from
-the call site beyond layout (`style={{ maxWidth: … }}`) — visual treatment
-belongs in the variant, so every dropdown of that kind stays identical.
+`.select-trigger.select-<variant>` block in `globals.css`. Note the
+`select-` prefix: the trigger renders `class="select-trigger select-toolbar"`,
+not `… toolbar`, because bare variant names collide with the layout utilities
+of the same name. Don't style a `Select` from the call site beyond layout
+(`style={{ maxWidth: … }}`) — visual treatment belongs in the variant, so
+every dropdown of that kind stays identical.
 
 ## 2. Icons — Bootstrap Icons webfont, via `<Icon>`
 
