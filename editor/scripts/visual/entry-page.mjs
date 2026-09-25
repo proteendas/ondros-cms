@@ -31,6 +31,17 @@ ok(bar?.buttons === 5, `five viewport buttons (got ${bar?.buttons})`);
 const mids = (bar?.rects ?? []).map((r) => r.mid);
 const spread = mids.length ? Math.max(...mids) - Math.min(...mids) : 99;
 ok(spread < 6, `toolbar items share a baseline (spread ${spread.toFixed(1)}px)`);
+
+// Height parity with the neighbouring buttons. Without vertical padding the
+// segmented group rendered 8px shorter than everything beside it.
+const heights = await page.evaluate(() => {
+  const g = document.querySelector('.device-switch').getBoundingClientRect().height;
+  const b = document.querySelector('.preview-toolbar .pt-actions .btn').getBoundingClientRect().height;
+  return { group: +g.toFixed(1), btn: +b.toFixed(1) };
+});
+console.log('  heights:', JSON.stringify(heights));
+ok(Math.abs(heights.group - heights.btn) <= 1,
+   `device group matches button height (${heights.group} vs ${heights.btn})`);
 await page.screenshot({ path: 'v4-entry.png', clip: { x: 640, y: 0, width: 960, height: 460 } });
 
 // Prove the page can actually scroll, or "still visible" means nothing.

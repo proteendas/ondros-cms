@@ -555,6 +555,7 @@ table.list td.actions { text-align: right; white-space: nowrap; }
 .device-switch {
   display: inline-flex;
   align-items: stretch;
+  align-self: center;
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
@@ -565,8 +566,11 @@ table.list td.actions { text-align: right; white-space: nowrap; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 30px;
-  padding: 0 8px;
+  min-width: 34px;
+  /* Matches .btn.small's 4px 10px, so the group ends up the same height as the
+     buttons beside it. With no vertical padding the icons touched both edges
+     and the group sat 8px shorter than its neighbours. */
+  padding: 4px 10px;
   border: none;
   background: none;
   color: var(--text-2);
