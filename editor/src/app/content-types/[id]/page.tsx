@@ -94,6 +94,8 @@ export default function ContentTypeBuilderPage() {
   }
 
   const fieldIds = useMemo(() => fields.map((f) => f.id), [fields]);
+  // A type is addressable because it models a slug field (at most one).
+  const slugFieldId = useMemo(() => fields.find((f) => f.type === 'slug')?.id ?? null, [fields]);
 
   if (error && !ct) return <p className="error-text">{error}</p>;
   if (!ct) return <p className="muted">Loading…</p>;
@@ -150,6 +152,21 @@ export default function ContentTypeBuilderPage() {
               value={ct.description}
               onChange={(e) => { setCt({ ...ct, description: e.target.value }); setDirty(true); }}
             />
+            <p className="help-text" style={{ marginBottom: 0 }}>
+              {slugFieldId ? (
+                <>
+                  <Icon name="field-slug" size={12} /> Entries get their own page at{' '}
+                  <code>/{ct.api_id}/&lt;{slugFieldId}&gt;</code> — authors fill the{' '}
+                  <strong>{slugFieldId}</strong> field.
+                </>
+              ) : (
+                <>
+                  <Icon name="field-slug" size={12} /> No slug field: entries of this type are
+                  reusable blocks with no URL of their own. Add a <strong>Slug</strong> field to
+                  make them pages.
+                </>
+              )}
+            </p>
           </div>
 
           <div className="row" style={{ margin: '18px 0 4px' }}>
@@ -187,6 +204,11 @@ export default function ContentTypeBuilderPage() {
                   <div className="muted small">{info.label}</div>
                 </div>
                 <div className="f-flags">
+                  {f.type === 'slug' && (
+                    <span className="chip" title="This field is the entry's URL segment">
+                      <Icon name="field-slug" size={10} /> URL
+                    </span>
+                  )}
                   {f.validations.required && <span className="chip">required</span>}
                   {f.localized && <span className="chip">localized</span>}
                   {(f.type === 'reference' || f.type === 'reference_many') &&
@@ -249,6 +271,7 @@ export default function ContentTypeBuilderPage() {
         <FieldDialog
           field={dialogIndex === 'new' ? null : fields[dialogIndex]}
           existingIds={fieldIds.filter((_, i) => i !== dialogIndex)}
+          slugTaken={fields.some((f, i) => f.type === 'slug' && i !== dialogIndex)}
           siblingTypes={siblingTypes.filter((t) => t.id !== ct.id).map((t) => t.api_id).concat(ct.api_id)}
           onClose={() => setDialogIndex(null)}
           onSave={(f) => {
@@ -392,12 +415,15 @@ function RichTextRestrictions({
 function FieldDialog({
   field,
   existingIds,
+  slugTaken,
   siblingTypes,
   onClose,
   onSave,
 }: {
   field: FieldDef | null;
   existingIds: string[];
+  /** Another field already claims the slug: a type gets at most one URL. */
+  slugTaken: boolean;
   siblingTypes: string[];
   onClose: () => void;
   onSave: (f: FieldDef) => void;
@@ -428,6 +454,8 @@ function FieldDialog({
     if (!draft.name.trim()) return setError('Name is required');
     if (!/^[a-z][a-z0-9_]*$/.test(draft.id)) return setError('Field id must be lowercase snake_case');
     if (existingIds.includes(draft.id)) return setError(`Field id "${draft.id}" already exists`);
+    if (draft.type === 'slug' && slugTaken)
+      return setError('This content type already has a slug field');
     if (draft.type === 'select' && !(draft.validations.allowed_values ?? []).length)
       return setError('Enum fields need at least one allowed value');
     if (isGroup && !(draft.fields ?? []).length)
@@ -443,18 +471,21 @@ function FieldDialog({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 6 }}>
             {PICKABLE_TYPES.map((t) => {
               const info = FIELD_TYPE_INFO[t];
+              const blocked = t === 'slug' && slugTaken;
               return (
                 <button
                   key={t}
                   type="button"
                   className="picker-tile"
+                  disabled={blocked}
                   style={{
                     padding: '8px 6px',
+                    opacity: blocked ? 0.45 : undefined,
                     borderColor: draft.type === t ? 'var(--primary)' : undefined,
                     background: draft.type === t ? 'var(--primary-soft)' : undefined,
                   }}
                   onClick={() => patch({ type: t })}
-                  title={info.hint}
+                  title={blocked ? 'This type already has a slug field' : info.hint}
                 >
                   <div><Icon name={info.icon} size={16} /></div>
                   <div className="tile-name">{info.label}</div>
@@ -746,10 +777,11 @@ function SubFieldBuilder({
             ariaLabel="Sub-field type"
             value={type}
             onChange={(v) => setType(v as FieldType)}
-            options={Object.entries(FIELD_TYPE_INFO).map(([value, info]) => ({
-              value,
-              label: info.label,
-            }))}
+            // A slug addresses the entry, so it can't repeat inside a group —
+            // the backend rejects it too.
+            options={Object.entries(FIELD_TYPE_INFO)
+              .filter(([value]) => value !== 'slug')
+              .map(([value, info]) => ({ value, label: info.label }))}
           />
         </div>
         <button type="button" className="btn secondary" onClick={add}>

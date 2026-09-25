@@ -18,17 +18,18 @@ const PAGE_SIZE = 25;
 const STATUSES: EntryStatus[] = ['draft', 'in_review', 'published', 'archived'];
 
 function entryTitle(entry: Entry, ct: ContentType | undefined, defaultLocale: string): string {
-  if (!ct) return entry.slug;
+  const fallback = entry.slug || 'Untitled';
+  if (!ct) return fallback;
   const displayId =
     ct.display_field || ct.fields.find((f) => ['text', 'slug'].includes(f.type))?.id;
   const fd = ct.fields.find((f) => f.id === displayId);
-  if (!fd) return entry.slug;
+  if (!fd) return fallback;
   const raw = entry.fields?.[fd.id];
   const value =
     fd.localized && raw && typeof raw === 'object' && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)[defaultLocale]
       : raw;
-  return typeof value === 'string' && value.trim() ? value : entry.slug;
+  return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
 export default function EntriesPage() {
@@ -201,7 +202,7 @@ function EntriesPageInner() {
                     <Link href={`/entries/${entry.id}`} style={{ fontWeight: 500 }}>
                       {entryTitle(entry, ct, space?.default_locale ?? 'en-US')}
                     </Link>
-                    <div className="muted small mono">/{entry.slug}</div>
+                    {entry.slug && <div className="muted small mono">/{entry.slug}</div>}
                   </td>
                   <td>{ct?.name ?? '—'}</td>
                   <td><span className={`badge ${entry.status}`}>{entry.status.replace('_', ' ')}</span></td>
@@ -276,9 +277,9 @@ function NewEntryModal({
   const [typeId, setTypeId] = useState(
     types.find((t) => t.api_id === initialType)?.id ?? types[0]?.id ?? '',
   );
-  const [slug, setSlug] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const selected = types.find((t) => t.id === typeId);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -287,7 +288,7 @@ function NewEntryModal({
     try {
       const entry = await api<Entry>(`${envPath}/entries`, {
         method: 'POST',
-        body: JSON.stringify({ content_type_id: typeId, slug, fields: {} }),
+        body: JSON.stringify({ content_type_id: typeId, fields: {} }),
       });
       onCreated(entry.id);
     } catch (err) {
@@ -306,16 +307,11 @@ function NewEntryModal({
           onChange={setTypeId}
           options={types.map((t) => ({ value: t.id, label: t.name }))}
         />
-        <label className="field-label">Slug</label>
-        <input
-          className="input mono"
-          value={slug}
-          required
-          pattern="^[a-z0-9][a-z0-9\-]*$"
-          placeholder="my-first-entry"
-          onChange={(e) => setSlug(e.target.value)}
-          autoFocus
-        />
+        <p className="help-text">
+          {selected?.slug_field
+            ? `Fill in the "${selected.slug_field}" field in the editor to give this entry its URL.`
+            : 'This type has no slug field, so its entries are building blocks rather than pages.'}
+        </p>
         {error && <p className="error-text">{error}</p>}
         <div className="modal-footer">
           <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>

@@ -128,6 +128,9 @@ class ContentTypeOut(BaseModel):
     api_id: str
     description: str
     display_field: str
+    # Derived, read-only: id of the type's `slug` field, or None when entries of
+    # this type are not addressable by URL (reusable blocks).
+    slug_field: str | None = None
     fields: list[FieldDef]
     created_at: datetime
     updated_at: datetime
@@ -139,12 +142,16 @@ class ContentTypeOut(BaseModel):
 
 class EntryCreate(BaseModel):
     content_type_id: uuid.UUID
-    slug: str = Field(pattern=r"^[a-z0-9][a-z0-9\-]*$")
+    # Convenience alias kept for existing API/SDK clients: writes into the
+    # content type's slug field. Ignored by types that have no slug field —
+    # the field value is the source of truth (see app.api.entries).
+    slug: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9\-]*$")
     fields: dict[str, Any] = {}
 
 
 class EntryUpdate(BaseModel):
-    slug: str | None = None
+    # Same alias as EntryCreate.slug.
+    slug: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9\-]*$")
     # Partial update: only provided keys are merged into Entry.fields.
     fields: dict[str, Any] | None = None
 
@@ -169,7 +176,8 @@ class EntryOut(BaseModel):
     space_id: uuid.UUID
     environment_id: uuid.UUID
     content_type_id: uuid.UUID
-    slug: str
+    # None for types with no slug field; otherwise mirrors that field's value.
+    slug: str | None
     status: str
     fields: dict[str, Any]
     published_fields: dict[str, Any] | None

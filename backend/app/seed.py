@@ -70,6 +70,9 @@ CARD_FIELDS = [
 LANDING_FIELDS = [
     {"id": "title", "name": "Page Title", "type": "text",
      "validations": {"required": True, "max_length": 120}},
+    {"id": "slug", "name": "Slug", "type": "slug",
+     "validations": {"required": True, "max_length": 120},
+     "help_text": "URL segment for this page: /landing_page/<slug>."},
     {"id": "hero", "name": "Hero", "type": "reference", "allowed_content_types": ["hero"],
      "help_text": "The hero section shown at the top of the page."},
     {"id": "sections", "name": "Feature Cards", "type": "reference_many",
@@ -86,6 +89,9 @@ ARTICLE_FIELDS = [
      "validations": {"required": True, "max_length": 120},
      "help_text": "Headline shown on the page and in listings.",
      "ai_hint": "A punchy headline, sentence case, no clickbait."},
+    {"id": "slug", "name": "Slug", "type": "slug",
+     "validations": {"required": True, "max_length": 120},
+     "help_text": "URL segment for this article: /article/<slug>."},
     {"id": "excerpt", "name": "Excerpt", "type": "text", "localized": True,
      "validations": {"max_length": 200},
      "help_text": "Short teaser used on listing pages.",
@@ -296,6 +302,8 @@ async def seed() -> None:
             db.add(obj)
             return obj
 
+        # hero/card carry no slug field: they only ever render inside a page, so
+        # authors are never asked for one. landing_page/article do (see *_FIELDS).
         hero_ct = ct("Hero Section", "hero", HERO_FIELDS,
                      "Reusable hero blocks for landing pages.", "heading")
         card_ct = ct("Feature Card", "card", CARD_FIELDS,
@@ -309,12 +317,17 @@ async def seed() -> None:
         now = datetime.now(timezone.utc)
 
         def entry(ct_obj: ContentType, slug: str, fields: dict, published: bool = True) -> Entry:
+            # `slug` is only a URL for types that model one: it goes into the
+            # slug field, and Entry.slug mirrors it. Block types ignore it and
+            # keep a NULL slug, exactly as the API would set them.
+            slug_field = ct_obj.slug_field
+            values = {**fields, slug_field: slug} if slug_field else dict(fields)
             obj = Entry(
                 tenant_id=tenant.id, space_id=space.id, environment_id=master.id,
-                content_type_id=ct_obj.id, slug=slug,
+                content_type_id=ct_obj.id, slug=slug if slug_field else None,
                 status=EntryStatus.published.value if published else EntryStatus.draft.value,
-                fields=fields,
-                published_fields=dict(fields) if published else None,
+                fields=values,
+                published_fields=dict(values) if published else None,
                 published_at=now if published else None,
                 created_by=admin.id, updated_by=admin.id,
             )

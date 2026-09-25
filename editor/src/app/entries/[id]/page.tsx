@@ -244,7 +244,12 @@ export default function EntryEditorPage() {
       <div className="page-header" style={{ marginBottom: 10 }}>
         <div>
           <h1 style={{ margin: 0 }}>
-            {contentType.name} <span className="muted mono">/{entry.slug}</span>
+            {contentType.name}{' '}
+            {entry.slug ? (
+              <span className="muted mono">/{entry.slug}</span>
+            ) : contentType.slug_field ? (
+              <span className="muted small">no slug yet</span>
+            ) : null}
           </h1>
         </div>
         <span className={`badge ${entry.status}`}>{entry.status.replace('_', ' ')}</span>

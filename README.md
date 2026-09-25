@@ -77,7 +77,8 @@ curl "http://localhost:8000/spaces/<spaceId>/environments/master/delivery/entrie
 | Space          | `Space` (owns locales, API keys, webhooks)                   |
 | Environment    | `Environment` (`master`, `staging`, …) — content types AND entries are environment-scoped; cloning copies both and **remaps reference ids** |
 | Content type   | `ContentType` with `FieldDef[]` schema                       |
-| Field types    | text, longtext, richtext, number, boolean, datetime, select (enum), media, media_many, reference, reference_many (assemblies), json, slug — each optionally `localized` |
+| Field types    | text, longtext, richtext, number, boolean, datetime, select (enum), media, media_many, reference, reference_many (assemblies), json, slug, group (repeatable multifield) — each optionally `localized` |
+| Pages vs blocks | A type is addressable because it models a `slug` field (Contentful-style). `landing_page`/`article` have one and get `/type/<slug>` URLs; `hero`/`card` don't, so authors are never asked for a slug |
 | Entry          | draft `fields` vs frozen `published_fields`; workflow draft → in_review → published → archived |
 | Localization   | localized fields store `{locale: value}`; delivery resolves via `?locale=` (fallback to default locale, `*` = raw maps) |
 | API keys       | `delivery` (published only), `preview` (drafts too), `management` (space CRUD); hashed at rest, environment-scopable, shown once |

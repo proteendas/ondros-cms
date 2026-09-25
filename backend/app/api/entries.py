@@ -15,6 +15,8 @@ Publishing validates the schema (localized-aware) AND reference integrity:
 referenced entries must exist in the same environment and match the field's
 allowed_content_types; referenced media must exist in the same space.
 """
+import re
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -58,6 +60,58 @@ ORDERABLE = {
     "slug": Entry.slug,
     "status": Entry.status,
 }
+
+
+async def _slug_taken(db: AsyncSession, content_type_id: uuid.UUID, slug: str,
+                      exclude_entry_id: uuid.UUID | None = None) -> bool:
+    stmt = select(Entry.id).where(Entry.content_type_id == content_type_id, Entry.slug == slug)
+    if exclude_entry_id is not None:
+        stmt = stmt.where(Entry.id != exclude_entry_id)
+    return (await db.execute(stmt.limit(1))).scalar_one_or_none() is not None
+
+
+async def _sync_slug(db: AsyncSession, entry: Entry) -> None:
+    """Mirror the content type's slug field value onto Entry.slug.
+
+    Slugs live in the content model (Contentful-style): a type is addressable
+    because it has a ``slug`` field, and that field's value is the source of
+    truth. Entry.slug is the denormalized copy delivery filters and routes on,
+    so it is recomputed on every write and enforced unique per content type.
+    """
+    field_id = entry.content_type.slug_field
+    if field_id is None:
+        entry.slug = None
+        return
+
+    raw = (entry.fields or {}).get(field_id)
+    if isinstance(raw, dict):
+        # Localized slug: the route is the default locale's value.
+        default_locale = (
+            await db.execute(select(Space.default_locale).where(Space.id == entry.space_id))
+        ).scalar_one_or_none()
+        raw = raw.get(default_locale) if default_locale else None
+    value = raw.strip() if isinstance(raw, str) and raw.strip() else None
+
+    if value and await _slug_taken(db, entry.content_type_id, value, exclude_entry_id=entry.id):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Slug '{value}' is already used by another {entry.content_type.api_id} entry",
+        )
+    entry.slug = value
+
+
+def _apply_slug_alias(ct: ContentType, fields: dict, slug: str | None) -> dict:
+    """Fold the legacy `slug` request field into the content type's slug field.
+
+    Kept so existing API/SDK/CLI clients that post a top-level slug keep
+    working. Types without a slug field simply ignore it.
+    """
+    if slug is None:
+        return fields
+    field_id = ct.slug_field
+    if field_id is None:
+        return fields
+    return {**(fields or {}), field_id: slug}
 
 
 async def validate_references(db: AsyncSession, entry: Entry, field_defs: list[dict]) -> list[str]:
@@ -201,30 +255,21 @@ async def create_entry(
     if ct is None:
         raise HTTPException(status_code=404, detail="Content type not found in this environment")
 
-    duplicate = (
-        await db.execute(
-            select(Entry).where(
-                Entry.content_type_id == payload.content_type_id, Entry.slug == payload.slug
-            )
-        )
-    ).scalar_one_or_none()
-    if duplicate:
-        raise HTTPException(status_code=409, detail=f"Slug '{payload.slug}' already exists for this type")
-
     entry = Entry(
         tenant_id=actor.tenant_id,
         space_id=space_id,
         environment_id=env.id,
         content_type_id=payload.content_type_id,
-        slug=payload.slug,
-        fields=payload.fields,
+        fields=_apply_slug_alias(ct, payload.fields, payload.slug),
         created_by=actor.user_id,
         updated_by=actor.user_id,
     )
+    entry.content_type = ct
+    await _sync_slug(db, entry)
     db.add(entry)
     await db.flush()
     record_audit(db, actor, "entry.create", "entry", entry.id,
-                 diff={"slug": payload.slug, "contentType": ct.api_id}, space_id=space_id)
+                 diff={"slug": entry.slug, "contentType": ct.api_id}, space_id=space_id)
     await db.commit()
     await db.refresh(entry)
     emit(
@@ -307,12 +352,13 @@ async def update_entry(
     # Snapshot the pre-change state so this version can be diffed/restored.
     await snapshot_entry(db, entry, actor)
     old_fields = dict(entry.fields or {})
-    if payload.slug is not None:
-        entry.slug = payload.slug
-    if payload.fields is not None:
+    patch = dict(payload.fields or {})
+    patch = _apply_slug_alias(entry.content_type, patch, payload.slug)
+    if patch or payload.fields is not None:
         # Merge semantics: only the provided keys change. Send {"fields": {"title": ...}}
         # from inline editing without clobbering other fields.
-        entry.fields = {**(entry.fields or {}), **payload.fields}
+        entry.fields = {**(entry.fields or {}), **patch}
+    await _sync_slug(db, entry)
     entry.version += 1
     entry.updated_by = actor.user_id
     record_audit(db, actor, "entry.update", "entry", entry.id,
@@ -328,7 +374,7 @@ async def update_entry(
             "version": entry.version,
             "status": entry.status,
             "fields": entry.fields,
-            "changed": list((payload.fields or {}).keys()),
+            "changed": list(patch.keys()),
         },
     )
     env = (
@@ -481,8 +527,9 @@ async def restore_entry_version(
     await snapshot_entry(db, entry, actor)  # preserve the current state first
     old_fields = dict(entry.fields or {})
     entry.fields = dict(snapshot.fields or {})
-    if snapshot.slug:
-        entry.slug = snapshot.slug
+    # The slug lives in the restored fields; re-derive the routable mirror
+    # (and reject a restore that would collide with another entry's slug).
+    await _sync_slug(db, entry)
     entry.version += 1
     entry.updated_by = actor.user_id
     record_audit(db, actor, "entry.restore_version", "entry", entry.id,

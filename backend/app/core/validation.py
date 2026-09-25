@@ -24,6 +24,9 @@ MEDIA_TYPES = {"media", "media_many"}
 MANY_TYPES = {"reference_many", "media_many"}
 # richtext is handled separately (str legacy HTML OR ProseMirror JSON doc).
 TEXT_TYPES = {"text", "longtext", "slug", "select"}
+# Slug fields address a URL segment, so they are restricted to what a path
+# segment can safely hold. Checked on publish; the editor slugifies as you type.
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\-]*$")
 
 
 def _is_empty(value: Any) -> bool:
@@ -54,6 +57,11 @@ def _check_type(fd: dict, value: Any) -> str | None:
     fid = fd["id"]
     if ftype in TEXT_TYPES and not isinstance(value, str):
         return f"Field '{fid}' must be a string"
+    if ftype == "slug" and isinstance(value, str) and not SLUG_RE.match(value):
+        return (
+            f"Field '{fid}' must be a URL slug: lowercase letters, digits and "
+            f"hyphens, starting with a letter or digit"
+        )
     if ftype == "richtext":
         # Legacy HTML string or a ProseMirror JSON doc; structure checked below.
         if not isinstance(value, (str, dict)):

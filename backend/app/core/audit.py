@@ -80,7 +80,7 @@ async def snapshot_entry(db: AsyncSession, entry: Entry, actor: Any) -> None:
             EntryVersion(
                 entry_id=entry.id,
                 version=entry.version,
-                slug=entry.slug,
+                slug=entry.slug or "",
                 status=entry.status,
                 fields=dict(entry.fields or {}),
                 created_by=getattr(actor, "user_id", None),

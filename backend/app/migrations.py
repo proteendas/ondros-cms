@@ -33,6 +33,9 @@ DDL_STATEMENTS = [
     # Content types: environment + display field
     "ALTER TABLE content_types ADD COLUMN IF NOT EXISTS environment_id UUID REFERENCES environments(id) ON DELETE CASCADE",
     "ALTER TABLE content_types ADD COLUMN IF NOT EXISTS display_field VARCHAR(100) DEFAULT ''",
+    # Slugs moved into the content model (a field of type `slug`), so the
+    # denormalized entries.slug mirror is NULL for types that don't model one.
+    "ALTER TABLE entries ALTER COLUMN slug DROP NOT NULL",
     # Entries: environment + updated_by
     "ALTER TABLE entries ADD COLUMN IF NOT EXISTS environment_id UUID REFERENCES environments(id) ON DELETE CASCADE",
     "ALTER TABLE entries ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id) ON DELETE SET NULL",
@@ -112,6 +115,62 @@ BACKFILL_STATEMENTS = [
         SELECT 1 FROM user_role_assignments a
         WHERE a.user_id = u.id AND a.role_id = u.role_id AND a.space_id IS NULL
       )
+    """,
+    # --- Slug-as-a-field (see ContentType.slug_field) -------------------------
+    # Entries used to carry a mandatory slug column with nothing in the content
+    # model behind it. Give every type whose entries actually have slugs a real
+    # `slug` field so authors can keep editing them, ...
+    """
+    UPDATE content_types ct
+    SET fields = coalesce(ct.fields, '[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+          'id', 'slug', 'name', 'Slug', 'type', 'slug', 'localized', false,
+          'validations', jsonb_build_object('required', true),
+          'allowed_content_types', '[]'::jsonb, 'rich_text', null,
+          'help_text', 'URL segment for this entry.', 'ai_hint', '', 'fields', '[]'::jsonb))
+    WHERE NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(coalesce(ct.fields, '[]'::jsonb)) f
+            WHERE f->>'type' = 'slug' OR f->>'id' = 'slug')
+      AND EXISTS (
+            SELECT 1 FROM entries e
+            WHERE e.content_type_id = ct.id AND e.slug IS NOT NULL AND e.slug <> '')
+    """,
+    # ... and copy each entry's slug into that field (draft + published copies)
+    # so the field value and the mirror agree from the first save onward.
+    """
+    UPDATE entries e
+    SET fields = jsonb_set(coalesce(e.fields, '{}'::jsonb), ARRAY[sf.field_id], to_jsonb(e.slug), true)
+    FROM (
+        SELECT ct.id AS ct_id,
+               (SELECT f->>'id' FROM jsonb_array_elements(coalesce(ct.fields, '[]'::jsonb)) f
+                WHERE f->>'type' = 'slug' LIMIT 1) AS field_id
+        FROM content_types ct
+    ) sf
+    WHERE e.content_type_id = sf.ct_id AND sf.field_id IS NOT NULL
+      AND e.slug IS NOT NULL AND e.slug <> ''
+      AND NOT (coalesce(e.fields, '{}'::jsonb) ? sf.field_id)
+    """,
+    """
+    UPDATE entries e
+    SET published_fields = jsonb_set(e.published_fields, ARRAY[sf.field_id], to_jsonb(e.slug), true)
+    FROM (
+        SELECT ct.id AS ct_id,
+               (SELECT f->>'id' FROM jsonb_array_elements(coalesce(ct.fields, '[]'::jsonb)) f
+                WHERE f->>'type' = 'slug' LIMIT 1) AS field_id
+        FROM content_types ct
+    ) sf
+    WHERE e.content_type_id = sf.ct_id AND sf.field_id IS NOT NULL
+      AND e.published_fields IS NOT NULL
+      AND e.slug IS NOT NULL AND e.slug <> ''
+      AND NOT (e.published_fields ? sf.field_id)
+    """,
+    # Types that model no slug have no URL: clear the orphaned mirror.
+    """
+    UPDATE entries e SET slug = NULL
+    FROM content_types ct
+    WHERE e.content_type_id = ct.id AND e.slug IS NOT NULL
+      AND NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(coalesce(ct.fields, '[]'::jsonb)) f
+            WHERE f->>'type' = 'slug')
     """,
     # SaaS upgrade: every existing user becomes a member (owner) of their tenant.
     """

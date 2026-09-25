@@ -51,6 +51,7 @@ export const ICONS = {
   'move-down': 'arrow-down',
   back: 'arrow-left',
   forward: 'arrow-right',
+  'generate-slug': 'magic',
   'inspector-on': 'eye',
   'inspector-off': 'eye-slash',
   // AI

@@ -49,12 +49,53 @@ cosmetic and safe to change at any time.
 | `reference` | entry UUID | Link to one entry |
 | `reference_many` | UUID[] | Ordered links — **assemblies** |
 | `json` | object | Escape hatch for arbitrary structure |
-| `slug` | string | URL-safe identifier |
+| `slug` | string | URL segment — **gives the type its own pages**, see [Slugs](#slugs) |
 | `group` | object[] | **Repeatable multifield** — see [Multi-field groups](#multi-field-groups) |
 
 `json` is deliberately last. It validates as "any object", so nothing in the
 editor or the API can help you with its contents — reach for it only when the
 shape genuinely varies.
+
+## Slugs
+
+A content type is addressable by URL because it **models a `slug` field** — not
+because of a flag on the type. This is the Contentful arrangement, and it is
+what makes the distinction between pages and blocks explicit in the model:
+
+| Type | Has a `slug` field? | Result |
+|---|---|---|
+| `landing_page`, `article` | yes | Entries are pages: `/landing_page/<slug>` |
+| `hero`, `card` | no | Entries are reusable blocks, rendered inside a page |
+
+Consequences worth knowing:
+
+- **Authors are never asked for a slug on a block.** Creating an entry asks
+  only for its content type; the slug, where one exists, is just another field
+  in the entry form (with a *Generate* button that derives it from the title).
+- **A type may have at most one slug field**, and it cannot live inside a
+  repeatable `group` — the API rejects both.
+- `Entry.slug` in the database is a **derived mirror** of that field's value
+  (the default locale's value if the field is localized). Delivery filters
+  (`?slug=`), ordering and the `(content_type_id, slug)` uniqueness constraint
+  all run against the mirror, so it is recomputed on every write. Saving a
+  duplicate slug returns `409`.
+- Entries whose type models no slug — and pages whose slug is still blank —
+  have `slug: null`. The editor previews them by entry id instead.
+- `ContentTypeOut.slug_field` (management API) and `contentType.slugField`
+  (delivery API) report which field that is, so consumers can tell a page from
+  a block without inspecting the schema.
+
+The format is enforced on publish: lowercase letters, digits and hyphens,
+starting with a letter or digit. The editor's slug input normalizes as you
+type, so a draft never autosaves something unroutable.
+
+### Migrating from entry-level slugs
+
+Earlier versions stored a mandatory slug on every entry with nothing in the
+content model behind it. The startup migration gives every type whose entries
+had slugs a real `slug` field and copies each value into it (draft and
+published copies), so existing URLs keep resolving and the value becomes
+editable. Delete that field from the types that turned out to be blocks.
 
 ## Multi-field groups
 
@@ -187,7 +228,8 @@ Rules worth knowing:
 
 Which fields to localize: prose yes, slugs and enum keys usually no — a
 localized slug means per-locale URLs, which is a routing decision, not a
-content one.
+content one. If you localize one anyway, the **default locale's** value is the
+one that becomes the entry's route.
 
 ## Validation
 

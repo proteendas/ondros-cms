@@ -98,6 +98,9 @@ export default function OnboardingPage() {
             fields: [
               { id: 'title', name: 'Title', type: 'text', localized: selected.length > 1,
                 validations: { required: true, max_length: 120 } },
+              // A slug field is what makes these entries addressable pages.
+              { id: 'slug', name: 'Slug', type: 'slug',
+                validations: { required: true } },
               { id: 'body', name: 'Body', type: 'richtext', localized: selected.length > 1,
                 validations: {} },
             ],

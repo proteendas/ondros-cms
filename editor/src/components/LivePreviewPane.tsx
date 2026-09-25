@@ -53,12 +53,14 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
   const [inspector, setInspector] = useState(true);
   const [nonce, setNonce] = useState(0);
 
+  // Pages are previewed by slug; blocks (types with no slug field, and pages
+  // whose slug is still blank) by entry id.
   const params = new URLSearchParams({
     token: PREVIEW_TOKEN,
     space: spaceId,
     environment: environmentKey,
     type: contentType.api_id,
-    slug: entry.slug,
+    ...(entry.slug ? { slug: entry.slug } : { id: entry.id }),
     locale,
   });
   const src = `${PREVIEW_URL}/api/preview?${params}`;

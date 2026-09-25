@@ -54,6 +54,11 @@ export interface CmsContentTypeInfo {
   apiId: string;
   name: string;
   displayField: string;
+  /**
+   * Id of the type's `slug` field, or null when its entries are not
+   * addressable by URL (reusable blocks rendered inside a page).
+   */
+  slugField?: string | null;
   fields?: CmsFieldDef[];
 }
 
@@ -68,7 +73,8 @@ export interface CmsFieldDef {
 
 export interface CmsEntry {
   id: string;
-  slug: string;
+  /** Mirrors the slug field's value; null for types that model no slug. */
+  slug: string | null;
   version: number;
   createdAt: string | null;
   updatedAt: string | null;

@@ -146,13 +146,13 @@ erDiagram
         uuid environment_id FK
         string api_id "landing_page"
         string display_field
-        jsonb fields "FieldDef[] — the schema"
+        jsonb fields "FieldDef[] — the schema; a `slug` field makes it a page"
     }
     ENTRY {
         uuid id PK
         uuid environment_id FK
         uuid content_type_id FK
-        string slug
+        string slug "nullable — mirrors the slug FIELD"
         string status "draft|in_review|published|archived"
         jsonb fields "working draft"
         jsonb published_fields "frozen, nullable"

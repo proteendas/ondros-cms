@@ -37,7 +37,11 @@ export const FIELD_TYPE_INFO: Record<FieldType, { label: string; icon: IconName;
   reference: { label: 'Reference', icon: 'field-reference', hint: 'Link to one entry' },
   reference_many: { label: 'References (many)', icon: 'field-reference-many', hint: 'Ordered links — assemblies' },
   json: { label: 'JSON', icon: 'field-json', hint: 'Arbitrary JSON object' },
-  slug: { label: 'Slug', icon: 'field-slug', hint: 'URL-safe identifier' },
+  slug: {
+    label: 'Slug',
+    icon: 'field-slug',
+    hint: 'URL segment — gives entries of this type their own page (max one per type)',
+  },
   group: {
     label: 'Multi-field group',
     icon: 'field-group',
@@ -94,6 +98,11 @@ export interface ContentType {
   api_id: string;
   description: string;
   display_field: string;
+  /**
+   * Id of this type's `slug` field, or null when its entries are not
+   * addressable by URL (reusable blocks). Derived server-side from `fields`.
+   */
+  slug_field: string | null;
   fields: FieldDef[];
   created_at: string;
   updated_at: string;
@@ -108,7 +117,8 @@ export interface Entry {
   space_id: string;
   environment_id: string;
   content_type_id: string;
-  slug: string;
+  /** Mirror of the slug field's value; null for types with no slug field. */
+  slug: string | null;
   status: EntryStatus;
   fields: Record<string, unknown>;
   published_fields: Record<string, unknown> | null;

@@ -45,6 +45,17 @@ export default function DynamicEntryForm({
   selectedFieldId,
   onFieldFocus,
 }: Props) {
+  // Text a slug field can be generated from: the type's display field, the way
+  // Contentful derives a slug from the entry title.
+  const titleField =
+    contentType.fields.find((f) => f.id === contentType.display_field) ??
+    contentType.fields.find((f) => f.type === 'text');
+  const titleRaw = titleField ? values[titleField.id] : undefined;
+  const slugSource =
+    titleField && titleField.localized
+      ? localizedValue(titleField, titleRaw, locale)
+      : titleRaw;
+
   return (
     <div>
       {contentType.fields.map((f) => {
@@ -79,6 +90,7 @@ export default function DynamicEntryForm({
               envPath={envPath}
               spacePath={spacePath}
               defaultLocale={defaultLocale}
+              slugSource={f.type === 'slug' ? slugSource : undefined}
             />
             {f.help_text && <p className="help-text">{f.help_text}</p>}
           </div>
@@ -96,6 +108,7 @@ function FieldInput({
   envPath,
   spacePath,
   defaultLocale,
+  slugSource,
 }: {
   field: FieldDef;
   value: unknown;
@@ -104,6 +117,8 @@ function FieldInput({
   envPath: string;
   spacePath: string;
   defaultLocale: string;
+  /** For slug fields: text to offer as a generated slug (usually the title). */
+  slugSource?: unknown;
 }) {
   switch (field.type) {
     case 'group':
@@ -216,13 +231,7 @@ function FieldInput({
     case 'json':
       return <JsonInput value={value} onChange={onChange} />;
     case 'slug':
-      return (
-        <input
-          className="input mono"
-          value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
+      return <SlugInput value={value} onChange={onChange} source={slugSource} />;
     case 'text':
     default: {
       const long = (field.validations.max_length ?? 0) > 160;
@@ -242,6 +251,57 @@ function FieldInput({
       );
     }
   }
+}
+
+/** Lowercase, hyphen-separated, safe to drop into a URL path segment. */
+export function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Slug field input. Typing is normalized to slug characters so an entry can
+ * never autosave a value the delivery API would refuse to route, and the
+ * title can be turned into a slug in one click.
+ */
+function SlugInput({
+  value,
+  onChange,
+  source,
+}: {
+  value: unknown;
+  onChange: (v: unknown) => void;
+  source?: unknown;
+}) {
+  const current = (value as string) ?? '';
+  const suggestion = typeof source === 'string' ? slugify(source) : '';
+  return (
+    <div className="row" style={{ gap: 6, alignItems: 'stretch' }}>
+      <input
+        className="input mono"
+        style={{ flex: 1 }}
+        value={current}
+        placeholder={suggestion || 'my-page'}
+        // Keep the hyphen the user is mid-typing, but drop everything the
+        // slug pattern rejects.
+        onChange={(e) => onChange(slugify(e.target.value.replace(/\s+/g, '-')))}
+      />
+      {suggestion && suggestion !== current && (
+        <button
+          type="button"
+          className="btn secondary small"
+          title={`Use "${suggestion}"`}
+          onClick={() => onChange(suggestion)}
+        >
+          <Icon name="generate-slug" size={12} /> Generate
+        </button>
+      )}
+    </div>
+  );
 }
 
 function JsonInput({ value, onChange }: { value: unknown; onChange: (v: unknown) => void }) {

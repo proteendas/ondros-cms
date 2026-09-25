@@ -35,7 +35,7 @@ function displayTitle(entry: Entry, ct: ContentType | undefined, defaultLocale: 
     fd?.localized && raw && typeof raw === 'object' && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)[defaultLocale]
       : raw;
-  return typeof v === 'string' && v.trim() ? v : entry.slug;
+  return typeof v === 'string' && v.trim() ? v : entry.slug || 'Untitled';
 }
 
 export default function ReferencePicker({
@@ -243,7 +243,7 @@ export function ReferenceSearchModal({
               <span className="ref-title">{displayTitle(entry, ct, defaultLocale)}</span>
               <span className={`badge ${entry.status}`}>{entry.status.replace('_', ' ')}</span>
               <span className="ref-type">{ct?.name}</span>
-              <span className="muted small mono">/{entry.slug}</span>
+              {entry.slug && <span className="muted small mono">/{entry.slug}</span>}
             </div>
           );
         })}

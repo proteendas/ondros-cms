@@ -144,6 +144,7 @@ function CreateTypeModal({
   const [apiId, setApiId] = useState('');
   const [apiIdTouched, setApiIdTouched] = useState(false);
   const [description, setDescription] = useState('');
+  const [isPage, setIsPage] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -152,9 +153,23 @@ function CreateTypeModal({
     setBusy(true);
     setError(null);
     try {
+      // A page-like type starts with a slug field — that field, not a flag on
+      // the type, is what gives its entries a URL.
+      const fields = isPage
+        ? [
+            {
+              id: 'slug',
+              name: 'Slug',
+              type: 'slug',
+              localized: false,
+              validations: { required: true },
+              help_text: `URL segment for this entry: /${apiId}/<slug>.`,
+            },
+          ]
+        : [];
       const ct = await api<ContentType>(`${envPath}/content-types`, {
         method: 'POST',
-        body: JSON.stringify({ name, api_id: apiId, description, fields: [] }),
+        body: JSON.stringify({ name, api_id: apiId, description, fields }),
       });
       onCreated(ct);
     } catch (err) {
@@ -201,6 +216,15 @@ function CreateTypeModal({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+        <label className="checkbox-row" style={{ marginTop: 12 }}>
+          <input type="checkbox" checked={isPage} onChange={(e) => setIsPage(e.target.checked)} />
+          <span>Entries of this type have their own page</span>
+        </label>
+        <p className="help-text">
+          {isPage
+            ? `Adds a Slug field, so each entry is addressable at /${apiId || 'landing_page'}/<slug>.`
+            : 'No slug field — entries are reusable blocks rendered inside a page (hero, card…). You can add one later.'}
+        </p>
         {error && <p className="error-text">{error}</p>}
         <div className="modal-footer">
           <button type="button" className="btn secondary" onClick={onClose}>

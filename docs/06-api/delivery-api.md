@@ -52,7 +52,7 @@ List entries, with filtering, ordering, pagination and link resolution.
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
 | `content_type` | string | — | Filter by `api_id`, e.g. `landing_page` |
-| `slug` | string | — | Exact match. Combine with `content_type` for a page lookup |
+| `slug` | string | — | Exact match. Combine with `content_type` for a page lookup. Only types that model a `slug` field have one |
 | `q` | string | — | Free-text search across field values |
 | `locale` | string | space default | Locale code, or `*` for raw per-locale maps |
 | `include` | int 0–3 | `1` | Depth of reference resolution |
@@ -72,7 +72,7 @@ List entries, with filtering, ordering, pagination and link resolution.
       "createdAt": "2026-09-15T18:22:10Z",
       "updatedAt": "2026-09-15T18:22:10Z",
       "publishedAt": "2026-09-15T18:22:10Z",
-      "contentType": { "apiId": "landing_page", "name": "Landing Page", "displayField": "title", "fields": [...] },
+      "contentType": { "apiId": "landing_page", "name": "Landing Page", "displayField": "title", "slugField": "slug", "fields": [...] },
       "fields": { "title": "Welcome", "hero": "9f2c…", "cards": ["a1…", "b2…"] }
     }
   ],
@@ -82,6 +82,11 @@ List entries, with filtering, ordering, pagination and link resolution.
   "includes": { "Entry": [...], "Asset": [...] }
 }
 ```
+
+`slug` is `null`, and `contentType.slugField` is `null`, for reusable block
+types (`hero`, `card`) — they model no slug field, so they have no URL of their
+own and should be rendered inside the page that references them rather than
+linked to.
 
 Note that `fields.hero` is an **id**, not a nested object. Resolved entries and
 assets live in `includes`.

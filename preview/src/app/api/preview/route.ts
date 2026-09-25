@@ -1,6 +1,7 @@
 /**
  * Draft-mode entry point (Contentful Live Preview-style):
  *   GET /api/preview?token=<preview api key>&type=article&slug=welcome
+ *   GET /api/preview?token=<preview api key>&type=hero&id=<entry uuid>
  *                    [&space=...&environment=master&locale=en-US]
  *
  * Validates the preview API key (must match this app's configured key),
@@ -20,7 +21,9 @@ export async function GET(request: Request) {
   // `secret` accepted for backwards compatibility with older editor builds.
   const token = searchParams.get('token') ?? searchParams.get('secret');
   const type = searchParams.get('type');
-  const slug = searchParams.get('slug');
+  // Blocks have no slug (their type models none), so the editor previews them
+  // by entry id instead; the page route accepts either.
+  const slug = searchParams.get('slug') || searchParams.get('id');
   const environment = searchParams.get('environment') ?? '';
   const locale = searchParams.get('locale') ?? '';
 
@@ -28,7 +31,7 @@ export async function GET(request: Request) {
     return new Response('Invalid preview token', { status: 401 });
   }
   if (!type || !slug) {
-    return new Response('Missing "type" or "slug" query params', { status: 400 });
+    return new Response('Missing "type" and "slug" (or "id") query params', { status: 400 });
   }
 
   draftMode().enable();

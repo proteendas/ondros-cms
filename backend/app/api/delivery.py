@@ -100,6 +100,10 @@ def _serialize_entry(
             "apiId": ct.api_id,
             "name": ct.name,
             "displayField": ct.display_field,
+            # Id of the type's slug field, or null when entries of this type are
+            # not addressable by URL: consumers should render such an entry
+            # inline rather than linking to /{apiId}/{slug}.
+            "slugField": ct.slug_field,
             # Schema ships with every entry so consumers can render fields
             # generically (identify references/media/localized) without a
             # second request.

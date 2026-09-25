@@ -25,12 +25,19 @@ export interface FieldDef {
 
 export interface DeliveredEntry {
   id: string;
-  slug: string;
+  slug: string | null;
   status?: string;
   version: number;
   updatedAt: string | null;
   fields: Record<string, unknown>;
-  contentType: { apiId: string; name: string; displayField?: string; fields?: FieldDef[] };
+  contentType: {
+    apiId: string;
+    name: string;
+    displayField?: string;
+    /** Id of the type's slug field; null when entries are not addressable. */
+    slugField?: string | null;
+    fields?: FieldDef[];
+  };
 }
 
 export interface DeliveredAsset {
@@ -100,13 +107,33 @@ async function deliveryRoot(opts: FetchOptions): Promise<{ base: string; token: 
   };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Fetch one entry by slug — or, when `slugOrId` is a uuid, by id.
+ *
+ * Only content types that model a `slug` field have slugs, so blocks (hero,
+ * card) are addressed by id. That is how the editor previews a block on its
+ * own; published sites link to pages by slug as before.
+ */
 export async function getEntry(
   type: string,
-  slug: string,
+  slugOrId: string,
   opts: FetchOptions = {},
 ): Promise<EntryResult | null> {
   const { base, token } = await deliveryRoot(opts);
-  const qs = new URLSearchParams({ content_type: type, slug, include: '2', limit: '1' });
+  if (UUID_RE.test(slugOrId)) {
+    const qs = new URLSearchParams({ include: '2' });
+    if (opts.locale) qs.set('locale', opts.locale);
+    const entry = await fetchJson<DeliveredEntry & { includes?: Includes }>(
+      `${base}/entries/${slugOrId}?${qs}`,
+      token,
+    );
+    if (!entry) return null;
+    const { includes, ...rest } = entry;
+    return { entry: rest as DeliveredEntry, includes: includes ?? { Entry: [], Asset: [] } };
+  }
+  const qs = new URLSearchParams({ content_type: type, slug: slugOrId, include: '2', limit: '1' });
   if (opts.locale) qs.set('locale', opts.locale);
   const data = await fetchJson<{ items: DeliveredEntry[]; includes: Includes }>(
     `${base}/entries?${qs}`,

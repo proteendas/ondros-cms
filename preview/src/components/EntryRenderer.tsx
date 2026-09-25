@@ -249,6 +249,16 @@ interface RichTextNode {
   attrs?: Record<string, unknown>;
 }
 
+/**
+ * Link target for an entry. Types that model a slug field get a real page;
+ * everything else is a block, addressable only by id (used by the editor's
+ * preview), so a link to one is not a public URL.
+ */
+function entryHref(entry: DeliveredEntry | undefined): string {
+  if (!entry) return '#';
+  return `/${entry.contentType.apiId}/${entry.slug ?? entry.id}`;
+}
+
 /** Wrap a text run in its marks (bold/italic/color/highlight/links…). */
 function applyMarks(text: React.ReactNode, marks: RichTextMark[] | undefined, maps: Maps, key: string): React.ReactNode {
   if (!marks?.length) return text;
@@ -265,7 +275,7 @@ function applyMarks(text: React.ReactNode, marks: RichTextMark[] | undefined, ma
       case 'link': return <a key={k} href={String(mark.attrs?.href ?? '#')}>{acc}</a>;
       case 'linkedEntry': {
         const e = maps.entries.get(String(mark.attrs?.id));
-        return <a key={k} href={e ? `/${e.contentType.apiId}/${e.slug}` : '#'}>{acc}</a>;
+        return <a key={k} href={entryHref(e)}>{acc}</a>;
       }
       case 'linkedAsset': {
         const a = maps.assets.get(String(mark.attrs?.id));
@@ -316,7 +326,11 @@ function RichTextNodeEl({ node, maps, nodeKey }: { node: RichTextNode; maps: Map
     case 'embeddedEntryInline': {
       const e = maps.entries.get(String(node.attrs?.id));
       if (!e) return null;
-      return <a className="embed-inline" href={`/${e.contentType.apiId}/${e.slug}`}>{e.contentType.name}: {e.slug}</a>;
+      return (
+        <a className="embed-inline" href={entryHref(e)}>
+          {e.contentType.name}: {e.slug ?? e.id}
+        </a>
+      );
     }
     case 'embeddedAssetBlock':
       return <Media attrs={{}} id={String(node.attrs?.id ?? '')} maps={maps} name="asset" />;

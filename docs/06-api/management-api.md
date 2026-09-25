@@ -91,11 +91,16 @@ reorder.
   "display_field": "title",
   "fields": [
     { "id": "title", "name": "Title", "type": "text", "validations": { "required": true, "max": 120 } },
+    { "id": "slug",  "name": "Slug",  "type": "slug", "validations": { "required": true } },
     { "id": "body",  "name": "Body",  "type": "richtext", "localized": true },
     { "id": "hero",  "name": "Hero",  "type": "reference", "allowed_content_types": ["hero"] }
   ]
 }
 ```
+
+A field of type `slug` is what makes the type's entries addressable by URL; a
+type may have at most one, and it may not be nested inside a `group`. The
+response reports it as the read-only `slug_field` (`null` for block types).
 
 Field types and validation rules: [08-content-modeling.md](../08-content-modeling.md).
 Deleting a type with entries is refused — delete or move the entries first.
@@ -120,8 +125,16 @@ Deleting a type with entries is refused — delete or move the entries first.
 | `GET` | `/entries/{entry_id}/versions/{version}` | `read_content` |
 | `POST` | `/entries/{entry_id}/versions/{version}/restore` | `manage_entries` |
 
+`POST` takes `{"content_type_id": ..., "fields": {...}}`. There is **no
+required slug**: an entry's URL, if it has one, is the value of its type's
+`slug` field, so it is written like any other field. A top-level `slug` key is
+still accepted as an alias that writes into that field (and is ignored by types
+that model none), which keeps older clients working.
+
 `PATCH` writes the **draft** (`fields`). Published output is unaffected until
 you publish — which is why an author can keep editing a live page safely.
+Changing the slug field's value moves the entry's URL and returns `409` if
+another entry of the same type already uses it.
 
 Publishing validates the fields against the schema **and** checks that every
 referenced id still exists, then copies the draft into `published_fields`,
@@ -131,8 +144,9 @@ snapshots a version, writes an audit row and fires webhooks.
 permission and validation failures are reported in a `failed` array rather than
 aborting the whole batch — one invalid entry doesn't block the other forty-nine.
 
-**Restore** copies an old snapshot's fields and slug back into the draft as a
-*new* version. History is append-only; nothing is rewritten.
+**Restore** copies an old snapshot's fields back into the draft as a *new*
+version — including the slug field, so the entry's URL is restored with it.
+History is append-only; nothing is rewritten.
 
 ```bash
 curl -X POST "localhost:8000/entries/$ID/publish" -H "Authorization: Bearer $TOKEN"

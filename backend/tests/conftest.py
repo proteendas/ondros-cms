@@ -96,6 +96,9 @@ MANAGEMENT_TOKEN = "cms_mgm_test-management-token"
 ARTICLE_FIELDS = [
     {"id": "title", "name": "Title", "type": "text", "localized": True,
      "validations": {"required": True, "max_length": 120}},
+    # Modelling a slug field is what makes a type addressable by URL; the
+    # top-level `slug` in create/update payloads writes into it.
+    {"id": "slug", "name": "Slug", "type": "slug", "validations": {}},
     {"id": "body", "name": "Body", "type": "richtext", "localized": False, "validations": {}},
     {"id": "related", "name": "Related", "type": "reference_many",
      "allowed_content_types": ["article"], "validations": {}},
@@ -106,6 +109,12 @@ ARTICLE_FIELDS = [
 HERO_FIELDS = [
     {"id": "heading", "name": "Heading", "type": "text",
      "validations": {"required": True}},
+    {"id": "slug", "name": "Slug", "type": "slug", "validations": {}},
+]
+
+# A block type with no slug field: its entries are never addressable by URL.
+BLOCK_FIELDS = [
+    {"id": "title", "name": "Title", "type": "text", "validations": {"required": True}},
 ]
 
 
@@ -194,7 +203,11 @@ async def workspace(db_maker):
             tenant_id=tenant.id, space_id=space.id, environment_id=master.id,
             name="Hero", api_id="hero", display_field="heading", fields=HERO_FIELDS,
         )
-        db.add_all([article_ct, hero_ct])
+        block_ct = ContentType(
+            tenant_id=tenant.id, space_id=space.id, environment_id=master.id,
+            name="Block", api_id="block", display_field="title", fields=BLOCK_FIELDS,
+        )
+        db.add_all([article_ct, hero_ct, block_ct])
         await db.commit()
 
         tokens = {
@@ -210,6 +223,7 @@ async def workspace(db_maker):
             "tokens": tokens,
             "article_ct": article_ct,
             "hero_ct": hero_ct,
+            "block_ct": block_ct,
         }
 
 

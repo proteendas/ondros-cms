@@ -44,6 +44,18 @@ class ContentType(Base):
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()
 
+    @property
+    def slug_field(self) -> str | None:
+        """Id of this type's slug field, or None if it has none.
+
+        Slugs are modelled the Contentful way: a type is addressable by URL
+        because the author put a ``slug`` field in its content model, not
+        because of a flag on the type. Page-like types (landing_page, article)
+        have one; reusable blocks (hero, card) don't, and their authors are
+        never asked for a slug.
+        """
+        return next((f.get("id") for f in (self.fields or []) if f.get("type") == "slug"), None)
+
 
 class EntryStatus(str, enum.Enum):
     draft = "draft"
@@ -65,7 +77,11 @@ class Entry(Base):
     content_type_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("content_types.id", ondelete="CASCADE"), index=True
     )
-    slug: Mapped[str] = mapped_column(String(200), index=True)
+    # Derived mirror of the slug field's value (default-locale value when the
+    # field is localized), kept in sync by app.api.entries. NULL for types with
+    # no slug field. Denormalized so delivery can filter/order on it and the
+    # (content_type_id, slug) unique key can enforce one entry per URL.
+    slug: Mapped[str | None] = mapped_column(String(200), index=True, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default=EntryStatus.draft.value, index=True)
     # Draft values, keyed by field id (localized fields hold {locale: value} dicts).
     fields: Mapped[dict] = mapped_column(JSONB, default=dict)

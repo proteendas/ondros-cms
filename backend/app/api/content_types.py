@@ -5,6 +5,10 @@
 
 Content types are environment-scoped (cloning an environment copies the model).
 The list endpoint annotates each type with its entry count for the model UI.
+
+Slugs are part of the model, not the type: adding a field of type `slug` is
+what makes a type's entries addressable by URL (ContentType.slug_field). A type
+may have at most one, and it cannot be nested inside a repeatable group.
 """
 import uuid
 
@@ -31,11 +35,34 @@ def _validate_field_defs(fields: list[FieldDef], display_field: str | None) -> N
         raise HTTPException(status_code=422, detail="Duplicate field ids in content type")
     if display_field and display_field not in ids:
         raise HTTPException(status_code=422, detail=f"display_field '{display_field}' is not a field id")
+    slug_fields = [f.id for f in fields if f.type == "slug"]
+    if len(slug_fields) > 1:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "A content type can have at most one slug field "
+                f"(found: {', '.join(slug_fields)})"
+            ),
+        )
     for f in fields:
         if f.type == "select" and not (f.validations.allowed_values or []):
             raise HTTPException(
                 status_code=422, detail=f"Field '{f.id}': select fields need validations.allowed_values"
             )
+        if f.type == "group" and _has_nested_slug(f.fields):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Field '{f.id}': slug fields cannot live inside a repeatable group",
+            )
+
+
+def _has_nested_slug(fields: list[FieldDef], depth: int = 0) -> bool:
+    if depth > 3:
+        return False
+    return any(
+        f.type == "slug" or (f.type == "group" and _has_nested_slug(f.fields, depth + 1))
+        for f in fields
+    )
 
 
 @router.get(

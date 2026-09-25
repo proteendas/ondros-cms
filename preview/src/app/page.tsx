@@ -31,7 +31,7 @@ export default async function HomePage() {
         <>
           <h2>Pages</h2>
           <ul>
-            {pages.map((p) => (
+            {pages.filter((p) => p.slug).map((p) => (
               <li key={p.id}>
                 <Link href={`/landing_page/${p.slug}`}>{String(p.fields.title ?? p.slug)}</Link>
               </li>
@@ -42,7 +42,7 @@ export default async function HomePage() {
 
       <h2>Articles</h2>
       <ul>
-        {articles.map((a) => (
+        {articles.filter((a) => a.slug).map((a) => (
           <li key={a.id}>
             <Link href={`/article/${a.slug}`}>{String(a.fields.title ?? a.slug)}</Link>
           </li>

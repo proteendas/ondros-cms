@@ -69,9 +69,12 @@ blocks.
 
 ## 4. Create something yourself
 
-1. **Content model → Add content type.** Name it `Article`, give it a `title`
-   (text), `body` (rich text) and `slug` (slug).
-2. **Content → New entry**, pick `Article`, fill it in, and hit **Publish**.
+1. **Content model → Add content type.** Name it `Article` and leave
+   *"Entries of this type have their own page"* checked — that adds the `slug`
+   field which gives each article a URL. Then add `title` (text) and `body`
+   (rich text).
+2. **Content → New entry**, pick `Article` — it only asks for the type — then
+   fill in the fields (including the slug) and hit **Publish**.
 3. Fetch it. The space id is in the URL, or in the seed output:
 
 ```bash

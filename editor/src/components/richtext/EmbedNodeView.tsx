@@ -24,7 +24,7 @@ function entryTitle(entry: Entry, ct: ContentType | undefined, defaultLocale: st
     fd?.localized && raw && typeof raw === 'object' && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)[defaultLocale]
       : raw;
-  return typeof v === 'string' && v.trim() ? v : entry.slug;
+  return typeof v === 'string' && v.trim() ? v : entry.slug || 'Untitled';
 }
 
 export default function EmbedNodeView({ node, deleteNode, updateAttributes }: NodeViewProps) {
