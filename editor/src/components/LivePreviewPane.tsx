@@ -49,10 +49,24 @@ interface Props {
   locale: string;
   onFieldSelected: (entryId: string, fieldId: string) => void;
   onInlineCommit: (entryId: string, fieldId: string, value: string, locale?: string) => void;
+  /**
+   * Origin of the site now in the iframe. The entry editor needs it to accept
+   * postMessages from it — with Code Sync that origin belongs to the customer,
+   * so it cannot be known at build time.
+   */
+  onPreviewOriginChange?: (origin: string | null) => void;
 }
 
 const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePreviewPane(
-  { entry, spaceId, environmentKey, locale, onFieldSelected, onInlineCommit },
+  {
+    entry,
+    spaceId,
+    environmentKey,
+    locale,
+    onFieldSelected,
+    onInlineCommit,
+    onPreviewOriginChange,
+  },
   ref,
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -100,13 +114,20 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
   useEffect(resolveTarget, [resolveTarget]);
 
   // The site's own origin, so field patches aren't broadcast to any listener.
-  const targetOrigin = (() => {
+  const previewOrigin = (() => {
     try {
-      return target?.url ? new URL(target.url).origin : '*';
+      return target?.url ? new URL(target.url).origin : null;
     } catch {
-      return '*';
+      return null;
     }
   })();
+  const targetOrigin = previewOrigin ?? '*';
+
+  // Tell the entry editor which origin to accept messages from, so clicks and
+  // inline edits in the connected site reach the form.
+  useEffect(() => {
+    onPreviewOriginChange?.(previewOrigin);
+  }, [previewOrigin, onPreviewOriginChange]);
 
   useImperativeHandle(ref, () => ({
     notifyFieldUpdated(entryId, fieldId, value) {
@@ -167,45 +188,52 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
 
   return (
     <div>
-      <div className="row" style={{ marginBottom: 8 }}>
-        <strong>Live preview</strong>
-        <span className="muted small">
+      <div className="preview-toolbar">
+        <strong className="pt-title">Live preview</strong>
+        <span className="pt-meta">
           {environmentKey} · {locale} · {target?.mode === 'component' ? 'component' : 'page'}
         </span>
         {target?.mode === 'component' && target.host_title && (
           <span
-            className="chip"
-            title="This block has no page of its own, so it is shown inside a page that uses it"
+            className="chip pt-host"
+            title={`This block has no page of its own, so it is shown inside /${target.host_title}, a page that uses it`}
           >
             <Icon name="content" size={10} /> in /{target.host_title}
           </span>
         )}
-        <span className="spacer" />
-        <button className="btn secondary small" onClick={toggleInspector}>
-          {inspector ? (
-            <>
-              <Icon name="inspector-on" size={13} /> Inspector on
-            </>
-          ) : (
-            <>
-              <Icon name="inspector-off" size={13} /> Inspector off
-            </>
+        <span className="pt-actions">
+          <button
+            className="btn secondary small"
+            onClick={toggleInspector}
+            title={inspector ? 'Inspector on — click to disable' : 'Inspector off — click to enable'}
+          >
+            <Icon name={inspector ? 'inspector-on' : 'inspector-off'} size={13} />
+            <span className="pt-label">{inspector ? 'Inspector on' : 'Inspector off'}</span>
+          </button>
+          <button
+            className="btn secondary small"
+            title="Reload the preview"
+            onClick={() => {
+              setNonce((n) => n + 1);
+              resolveTarget();
+            }}
+          >
+            <Icon name="reload" size={13} />
+            <span className="pt-label">Reload</span>
+          </button>
+          {src && (
+            <a
+              className="btn secondary small"
+              href={src}
+              target="_blank"
+              rel="noreferrer"
+              title="Open the preview in a new tab"
+            >
+              <span className="pt-label">Open</span>
+              <Icon name="open-external" size={12} />
+            </a>
           )}
-        </button>
-        <button
-          className="btn secondary small"
-          onClick={() => {
-            setNonce((n) => n + 1);
-            resolveTarget();
-          }}
-        >
-          <Icon name="reload" size={13} /> Reload
-        </button>
-        {src && (
-          <a className="btn secondary small" href={src} target="_blank" rel="noreferrer">
-            Open <Icon name="open-external" size={12} />
-          </a>
-        )}
+        </span>
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -253,9 +281,8 @@ function NotConnected({ state, spaceId }: { state: CodeSyncState; spaceId: strin
     : '';
   return (
     <div>
-      <div className="row" style={{ marginBottom: 8 }}>
-        <strong>Live preview</strong>
-        <span className="spacer" />
+      <div className="preview-toolbar">
+        <strong className="pt-title">Live preview</strong>
       </div>
       <div className="card" style={{ textAlign: 'center', padding: '32px 20px' }}>
         <div style={{ marginBottom: 10 }}>

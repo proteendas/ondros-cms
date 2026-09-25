@@ -62,6 +62,10 @@ export default function EntryEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [pane, setPane] = useState<PaneMode>('split');
   const [showHistory, setShowHistory] = useState(false);
+  // Origin of the site LivePreviewPane resolved for this entry. Until it is
+  // known, inspector messages are ignored — with Code Sync the preview is the
+  // customer's own site, so its origin can't be a build-time constant.
+  const [previewOrigin, setPreviewOrigin] = useState<string | null>(null);
 
   const locales = space?.locales ?? [{ code: 'en-US', name: 'English (US)' }];
   const defaultLocale = space?.default_locale ?? 'en-US';
@@ -186,7 +190,7 @@ export default function EntryEditorPage() {
     [queueSave, contentType, locale, entry, allTypes],
   );
 
-  useInspectorMessages({ onFieldSelected, onInlineEdit });
+  useInspectorMessages({ onFieldSelected, onInlineEdit, allowedOrigin: previewOrigin });
 
   // ---- live updates from other clients ------------------------------------
   useEntrySocket(entry?.id ?? null, (msg) => {
@@ -331,6 +335,7 @@ export default function EntryEditorPage() {
               locale={locale}
               onFieldSelected={onFieldSelected}
               onInlineCommit={onInlineEdit}
+              onPreviewOriginChange={setPreviewOrigin}
             />
           </div>
         )}
