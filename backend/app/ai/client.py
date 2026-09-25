@@ -31,6 +31,15 @@ class AIConfigurationError(RuntimeError):
     """Raised when AI endpoints are called but no provider is configured."""
 
 
+class AIProviderError(RuntimeError):
+    """The provider was reached but refused the request.
+
+    Distinct from AIConfigurationError: the server is configured, the upstream
+    said no. Surfaced as 502 rather than 500 so the editor can show the reason
+    instead of a blank failure.
+    """
+
+
 # Defaults per provider: base URL, chat model, embedding model ("" = none).
 PROVIDER_PRESETS: dict[str, dict[str, str]] = {
     "openai": {
@@ -128,14 +137,17 @@ class AIClient:
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
         try:
-            response = await client.chat.completions.create(**kwargs)
-        except Exception:
-            if not json_mode:
-                raise
-            # Some OpenAI-compatible providers reject response_format; retry
-            # without it (the JSON parser in ai.services tolerates fenced output).
-            kwargs.pop("response_format", None)
-            response = await client.chat.completions.create(**kwargs)
+            try:
+                response = await client.chat.completions.create(**kwargs)
+            except Exception:
+                if not json_mode:
+                    raise
+                # Some OpenAI-compatible providers reject response_format; retry
+                # without it (the JSON parser in ai.services tolerates fenced output).
+                kwargs.pop("response_format", None)
+                response = await client.chat.completions.create(**kwargs)
+        except Exception as exc:  # noqa: BLE001 - re-raised as a typed error
+            raise self._provider_error(exc) from exc
         return response.choices[0].message.content or ""
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
@@ -145,9 +157,40 @@ class AIClient:
                 f"Provider '{self.provider}' has no embedding model configured; "
                 "guideline retrieval will use keyword search instead."
             )
-        response = await client.embeddings.create(model=self.embedding_model, input=texts)
+        try:
+            response = await client.embeddings.create(model=self.embedding_model, input=texts)
+        except Exception as exc:  # noqa: BLE001 - re-raised as a typed error
+            raise self._provider_error(exc) from exc
         # API preserves input order.
         return [item.embedding for item in response.data]
+
+    def _provider_error(self, exc: Exception) -> "AIProviderError":
+        """Turn a provider SDK failure into something an editor can act on.
+
+        These used to escape as a 500, which tells the person nothing. The
+        common case by far is a key that belongs to a different provider than
+        the one configured, so that is called out by name.
+        """
+        status = getattr(exc, "status_code", None)
+        detail = str(getattr(exc, "message", "") or exc).strip()
+        if status in (401, 403):
+            return AIProviderError(
+                f"{self.provider} rejected the API key ({status}). Check AI_API_KEY "
+                f"belongs to {self.provider} — set AI_PROVIDER explicitly if the key "
+                f"is for a different one."
+            )
+        if status == 404:
+            return AIProviderError(
+                f"{self.provider} has no model '{self.chat_model}' ({status}). "
+                f"Set AI_CHAT_MODEL to one the provider offers."
+            )
+        if status == 429:
+            return AIProviderError(f"{self.provider} rate limit reached. Try again shortly.")
+        return AIProviderError(
+            f"{self.provider} request failed"
+            + (f" ({status})" if status else "")
+            + (f": {detail[:300]}" if detail else "")
+        )
 
 
 @lru_cache

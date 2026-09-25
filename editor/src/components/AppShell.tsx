@@ -19,6 +19,8 @@ import { useWorkspace } from '@/lib/workspace';
 const CHROME_FREE_PREFIXES = [
   '/login', '/signup', '/verify-email', '/forgot-password',
   '/reset-password', '/accept-invite', '/onboarding',
+  // Full-screen preview: the whole window belongs to the previewed site.
+  '/preview',
 ];
 
 /**
@@ -27,6 +29,8 @@ const CHROME_FREE_PREFIXES = [
  * document with no sidebar or workspace pickers to tease them with.
  */
 const PUBLIC_PREFIXES = ['/legal', '/support', '/help', '/403', '/maintenance', '/offline', '/session-expired'];
+
+const NAV_PINNED_KEY = 'cms_nav_pinned';
 
 const NAV: {
   section: string;
@@ -64,6 +68,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, spaces, space, environment, selectSpace, selectEnvironment } = useWorkspace();
   const [navOpen, setNavOpen] = useState(false);
+  // Desktop sidebar: an icon rail that opens on hover, or stays open when
+  // pinned. Starts collapsed and reads the stored choice after mount — doing
+  // it during render would not match what the server sent.
+  const [navPinned, setNavPinned] = useState(false);
+
+  useEffect(() => {
+    try {
+      setNavPinned(window.localStorage.getItem(NAV_PINNED_KEY) === '1');
+    } catch {
+      /* private mode / blocked storage: the rail just stays unpinned */
+    }
+  }, []);
+
+  function toggleNavPinned() {
+    setNavPinned((was) => {
+      const next = !was;
+      try {
+        window.localStorage.setItem(NAV_PINNED_KEY, next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   // Navigating on mobile should dismiss the drawer, not leave it covering the
   // page you just opened. Declared before the early return below so the hook
@@ -167,7 +195,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="shell">
+    <div className={`shell${navPinned ? ' nav-pinned' : ''}`}>
       <header className="topbar">
         {/* Mobile only: toggles the sidebar drawer (hidden at >=900px). */}
         <button
@@ -242,12 +270,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <span className="nav-icon">
                       <Icon name={item.icon} size={15} />
                     </span>
-                    {item.label}
+                    <span className="nav-label">{item.label}</span>
                   </Link>
                 );
               })}
             </div>
           ))}
+          {/* Desktop only (CSS): keeps the menu open instead of collapsing
+              back to the rail when the pointer leaves. */}
+          <button
+            type="button"
+            className="nav-pin"
+            onClick={toggleNavPinned}
+            aria-pressed={navPinned}
+            title={navPinned ? 'Unpin the menu' : 'Keep the menu open'}
+          >
+            <span className="nav-icon">
+              <Icon name={navPinned ? 'pin-filled' : 'pin'} size={15} />
+            </span>
+            <span className="nav-label">{navPinned ? 'Unpin menu' : 'Pin menu'}</span>
+          </button>
           <div className="sidebar-foot">
             <Link href="/legal/privacy-policy">Privacy</Link>
             <Link href="/legal/terms-of-service">Terms</Link>

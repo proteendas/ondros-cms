@@ -18,6 +18,15 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Key prefix -> provider, for auto-detection when AI_PROVIDER is unset.
+# Longest/most specific first: OpenRouter keys also start with "sk-".
+AI_KEY_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("gsk_", "groq"),
+    ("sk-or-", "openrouter"),
+    ("AIza", "gemini"),
+    ("sk-", "openai"),
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -177,6 +186,13 @@ class Settings(BaseSettings):
         if self.azure_openai_api_key and self.azure_openai_endpoint:
             return "azure_openai"
         if self.ai_api_key:
+            # Providers prefix their keys distinctively, so a key alone is
+            # usually enough to say where it belongs. Guessing "openai" for
+            # every key sent a gsk_ (Groq) key to api.openai.com, which fails
+            # with an auth error that looks nothing like the real problem.
+            for prefix, provider in AI_KEY_PREFIXES:
+                if self.ai_api_key.startswith(prefix):
+                    return provider
             return "openai"
         return "none"
 

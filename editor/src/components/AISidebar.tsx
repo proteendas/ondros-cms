@@ -36,6 +36,12 @@ interface Props {
   onApplyField: (fieldId: string, value: unknown) => void;
   /** Apply a whole set of generated fields. */
   onApplyFields: (fields: Record<string, unknown>) => void;
+  /**
+   * Rendered inside a dialog that already provides a frame and a title, so
+   * skip the card wrapper and the duplicate heading — keep only the provider
+   * pill, which people do look for.
+   */
+  embedded?: boolean;
 }
 
 type TransformMode = 'rewrite' | 'shorten' | 'expand' | 'seo';
@@ -68,6 +74,7 @@ export default function AISidebar({
   selectedFieldId,
   onApplyField,
   onApplyFields,
+  embedded,
 }: Props) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [brief, setBrief] = useState('');
@@ -277,9 +284,9 @@ export default function AISidebar({
   const aiOff = status !== null && !status.configured;
 
   return (
-    <div className="card">
+    <div className={embedded ? 'ai-panel' : 'card'}>
       <div className="row" style={{ marginBottom: 8 }}>
-        <h2 style={{ margin: 0 }}>AI assistant</h2>
+        {!embedded && <h2 style={{ margin: 0 }}>AI assistant</h2>}
         <span className="spacer" />
         {status && (
           <span className="provider-pill" title={`retrieval: ${status.retrieval_mode}`}>

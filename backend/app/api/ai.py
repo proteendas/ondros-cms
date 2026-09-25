@@ -8,7 +8,7 @@ AI provider is configured (see .env.example: groq/gemini/ollama are free).
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.client import AIConfigurationError, get_ai_client
+from app.ai.client import AIConfigurationError, AIProviderError, get_ai_client
 from app.ai.retrieval import retrieval_mode
 from app.ai.services import (
     check_compliance,
@@ -70,6 +70,8 @@ async def generate_entry(
         return await generate_entry_fields(db, actor, req)
     except AIConfigurationError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except AIProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.post("/transform-field", response_model=TransformFieldResponse)
@@ -83,6 +85,8 @@ async def transform(
         return await transform_field(db, actor, req)
     except AIConfigurationError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except AIProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.post("/check-compliance", response_model=ComplianceCheckResponse)
@@ -96,6 +100,8 @@ async def compliance(
         return await check_compliance(db, actor, req)
     except AIConfigurationError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except AIProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.post("/suggest-titles", response_model=SuggestTitlesResponse)
@@ -109,6 +115,8 @@ async def titles(
         return await suggest_titles(db, actor, req)
     except AIConfigurationError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except AIProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.post("/seo-meta", response_model=SeoMetaResponse)
@@ -122,6 +130,8 @@ async def seo_meta(
         return await generate_seo_meta(db, actor, req)
     except AIConfigurationError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except AIProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.post("/translate-fields", response_model=TranslateFieldsResponse)
@@ -135,3 +145,5 @@ async def translate(
         return await translate_fields(db, actor, req)
     except AIConfigurationError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except AIProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e))

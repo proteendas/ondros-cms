@@ -22,6 +22,7 @@ import LivePreviewPane, { LivePreviewHandle } from '@/components/LivePreviewPane
 import VersionHistory from '@/components/VersionHistory';
 import Icon from '@/components/ui/Icon';
 import { useInspectorMessages } from '@/components/InspectorMode';
+import { Modal } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useEntrySocket } from '@/lib/useEntrySocket';
 import { useWorkspace } from '@/lib/workspace';
@@ -66,6 +67,10 @@ export default function EntryEditorPage() {
   // known, inspector messages are ignored — with Code Sync the preview is the
   // customer's own site, so its origin can't be a build-time constant.
   const [previewOrigin, setPreviewOrigin] = useState<string | null>(null);
+  // The AI tools open on demand instead of holding a permanent third column:
+  // they are used in bursts, and the space is worth more to the form and the
+  // preview the rest of the time.
+  const [showAi, setShowAi] = useState(false);
 
   const locales = space?.locales ?? [{ code: 'en-US', name: 'English (US)' }];
   const defaultLocale = space?.default_locale ?? 'en-US';
@@ -273,6 +278,13 @@ export default function EntryEditorPage() {
             </button>
           ))}
         </div>
+        <button
+          className="btn secondary small"
+          onClick={() => setShowAi(true)}
+          title="Generate, rewrite, translate and audit with AI"
+        >
+          <Icon name="generate" size={13} /> AI assistant
+        </button>
         <button className="btn secondary small" onClick={() => setShowHistory(true)}>
           <Icon name="history" size={13} /> History
         </button>
@@ -352,21 +364,33 @@ export default function EntryEditorPage() {
           />
         )}
 
-        <div className="editor-side">
-          <AISidebar
-            contentType={contentType}
-            entryId={entry.id}
-            spaceId={entry.space_id}
-            environmentId={entry.environment_id}
-            values={values}
-            locale={locale}
-            defaultLocale={defaultLocale}
-            locales={locales.map((l) => l.code)}
-            selectedFieldId={selectedFieldId}
-            onApplyField={handleFieldChange}
-            onApplyFields={applyGeneratedFields}
-          />
-        </div>
+        {showAi && (
+          <Modal
+            title="AI assistant"
+            subtitle={
+              selectedFieldId
+                ? `Field transforms apply to "${selectedFieldId}".`
+                : 'Select a field in the form to enable the per-field transforms.'
+            }
+            wide
+            onClose={() => setShowAi(false)}
+          >
+            <AISidebar
+              embedded
+              contentType={contentType}
+              entryId={entry.id}
+              spaceId={entry.space_id}
+              environmentId={entry.environment_id}
+              values={values}
+              locale={locale}
+              defaultLocale={defaultLocale}
+              locales={locales.map((l) => l.code)}
+              selectedFieldId={selectedFieldId}
+              onApplyField={handleFieldChange}
+              onApplyFields={applyGeneratedFields}
+            />
+          </Modal>
+        )}
       </div>
     </div>
   );

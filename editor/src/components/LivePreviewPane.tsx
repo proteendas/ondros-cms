@@ -34,6 +34,13 @@ import { MSG } from '@/lib/protocol';
 import type { CodeSyncState, ContentType, Entry, PreviewTarget } from '@/lib/types';
 
 import InlineEditorOverlay from './InlineEditorOverlay';
+import {
+  DeviceControls,
+  DeviceStage,
+  useDeviceScale,
+  useStoredDevice,
+  findDevice,
+} from './PreviewDevices';
 
 export interface LivePreviewHandle {
   /** Push an optimistic field update into the preview iframe. */
@@ -80,6 +87,11 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
   // that otherwise loaded is the tell-tale of a site missing data-ondros-*
   // markup, and it's worth saying out loud rather than leaving authors puzzled.
   const [instrumented, setInstrumented] = useState<number | null>(null);
+
+  // Viewport switcher: render the site at a real device width and scale it to
+  // fit, so its own media queries fire the way they would on that device.
+  const { deviceId, landscape, selectDevice, rotate } = useStoredDevice('cms_preview_device');
+  const { stageRef, width, height, scale } = useDeviceScale(findDevice(deviceId), landscape);
 
   // ---- is this space connected to a repository? ---------------------------
   useEffect(() => {
@@ -202,6 +214,14 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
           </span>
         )}
         <span className="pt-actions">
+          <DeviceControls
+            deviceId={deviceId}
+            landscape={landscape}
+            scale={scale}
+            onDevice={selectDevice}
+            onRotate={rotate}
+            compact
+          />
           <button
             className="btn secondary small"
             onClick={toggleInspector}
@@ -224,10 +244,10 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
           {src && (
             <a
               className="btn secondary small"
-              href={src}
+              href={`/preview?entry=${entry.id}`}
               target="_blank"
               rel="noreferrer"
-              title="Open the preview in a new tab"
+              title="Open the preview full screen, with the same viewport sizes"
             >
               <span className="pt-label">Open</span>
               <Icon name="open-external" size={12} />
@@ -251,13 +271,15 @@ const LivePreviewPane = forwardRef<LivePreviewHandle, Props>(function LivePrevie
               place. See Settings → Code Sync for the markup contract.
             </p>
           )}
-          <iframe
-            key={nonce}
-            ref={iframeRef}
-            className="preview-frame"
-            src={src}
-            title="Live preview"
-          />
+          <DeviceStage stageRef={stageRef} width={width} height={height} scale={scale}>
+            <iframe
+              key={nonce}
+              ref={iframeRef}
+              className="preview-frame"
+              src={src}
+              title="Live preview"
+            />
+          </DeviceStage>
         </>
       )}
 

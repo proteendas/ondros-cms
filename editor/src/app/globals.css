@@ -125,8 +125,17 @@ pre.code-block {
 
 .body-wrap { display: flex; flex: 1; min-height: 0; }
 
+/* Sidebar geometry. The rail is what desktop shows by default; the icon sits
+   at --nav-pad-x + half an icon, which is exactly the rail's centre, so
+   collapsing doesn't shift anything sideways. */
+:root {
+  --nav-rail: 60px;
+  --nav-expanded: 232px;
+  --nav-pad-x: 21px;
+}
+
 .sidebar {
-  width: 216px;
+  width: var(--nav-expanded);
   flex-shrink: 0;
   background: var(--chrome);
   padding: 12px 8px 24px;
@@ -140,19 +149,121 @@ pre.code-block {
 }
 .sidebar .nav-section {
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
-  color: #64748b; padding: 14px 12px 6px;
+  color: #64748b; padding: 14px var(--nav-pad-x) 6px;
+  white-space: nowrap;
 }
 .sidebar a.nav-item {
   display: flex; align-items: center; gap: 10px;
   color: var(--chrome-text);
-  padding: 8px 12px;
+  padding: 8px var(--nav-pad-x);
   border-radius: 6px;
   font-size: 13.5px;
   text-decoration: none;
+  white-space: nowrap;
 }
 .sidebar a.nav-item:hover { background: var(--chrome-2); color: #fff; }
 .sidebar a.nav-item.active { background: var(--chrome-active); color: #fff; font-weight: 600; }
-.sidebar .nav-icon { width: 17px; text-align: center; opacity: 0.85; }
+.sidebar .nav-icon {
+  width: 18px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+}
+
+/* Pin control, bottom of the rail. */
+.nav-pin {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: auto;
+  padding: 8px var(--nav-pad-x);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #64748b;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nav-pin:hover { background: var(--chrome-2); color: #fff; }
+.nav-pin[aria-pressed='true'] { color: var(--chrome-text); }
+.nav-pin[aria-pressed='true'] .nav-icon { opacity: 1; }
+
+/* ---- Desktop: icon rail that opens on hover ------------------------------
+   The sidebar leaves the flow and the body reserves the rail width, so
+   expanding overlays the page instead of reflowing it — a layout shift on
+   every accidental hover would be unusable. Pinning puts the full width back
+   into the flow, which is the point of pinning: the content moves over once
+   and stays put.
+--------------------------------------------------------------------------- */
+@media (min-width: 901px) {
+  .body-wrap {
+    padding-left: var(--nav-rail);
+    transition: padding-left 160ms ease;
+  }
+  .shell.nav-pinned .body-wrap { padding-left: var(--nav-expanded); }
+
+  .sidebar {
+    position: fixed;
+    top: 52px;
+    left: 0;
+    bottom: 0;
+    height: auto;
+    width: var(--nav-rail);
+    z-index: 35;
+    overflow-x: hidden;
+    transition: width 160ms ease, box-shadow 160ms ease;
+  }
+  .sidebar:hover,
+  .sidebar:focus-within,
+  .shell.nav-pinned .sidebar {
+    width: var(--nav-expanded);
+  }
+  /* Only the floating state gets elevation; pinned is part of the page. */
+  .sidebar:hover,
+  .sidebar:focus-within {
+    box-shadow: 10px 0 30px rgba(2, 6, 23, 0.45);
+  }
+  .shell.nav-pinned .sidebar { box-shadow: none; }
+
+  /* Labels stay in the DOM — screen readers and keyboard users need them —
+     they are just clipped and faded while the rail is closed. */
+  .sidebar .nav-label,
+  .sidebar .nav-section,
+  .sidebar .sidebar-foot {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .sidebar:hover .nav-label,
+  .sidebar:focus-within .nav-label,
+  .shell.nav-pinned .sidebar .nav-label,
+  .sidebar:hover .nav-section,
+  .sidebar:focus-within .nav-section,
+  .shell.nav-pinned .sidebar .nav-section,
+  .sidebar:hover .sidebar-foot,
+  .sidebar:focus-within .sidebar-foot,
+  .shell.nav-pinned .sidebar .sidebar-foot {
+    opacity: 1;
+  }
+  /* Closed rail: the footer links must not be clickable under the icons. */
+  .sidebar:not(:hover):not(:focus-within) .sidebar-foot { pointer-events: none; }
+  .shell.nav-pinned .sidebar .sidebar-foot { pointer-events: auto; }
+
+  .nav-pin { display: flex; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body-wrap,
+  .sidebar,
+  .sidebar .nav-label,
+  .sidebar .nav-section,
+  .sidebar .sidebar-foot { transition: none; }
+}
 
 main.content {
   flex: 1;
@@ -416,6 +527,29 @@ table.list td.actions { text-align: right; white-space: nowrap; }
 
 /* Narrow pane: drop the meta line, then the button labels. Icons and their
    title attributes carry the meaning. */
+@container preview (max-width: 760px) {
+  .preview-toolbar /* AI tools inside the dialog: no card frame, and a cap so a long compliance
+   report scrolls rather than pushing the dialog past the viewport. */
+.ai-panel { max-height: min(70vh, 640px); overflow-y: auto; padding-right: 4px; }
+
+/* Full-screen preview route (/preview). */
+.preview-page { display: flex; flex-direction: column; height: 100dvh; background: var(--surface-2); }
+.preview-page-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.preview-page-body { flex: 1; min-height: 0; padding: 12px; overflow: auto; }
+.preview-page-body .preview-stage { height: 100%; }
+.preview-page-body .preview-stage.framed { height: 100%; min-height: 0; border: none; background: none; }
+.preview-page-body .preview-frame { height: 100%; }
+
+.preview-size { display: none; }
+}
 @container preview (max-width: 620px) {
   .preview-toolbar .pt-meta { display: none; }
 }
@@ -428,6 +562,43 @@ table.list td.actions { text-align: right; white-space: nowrap; }
    one: labels stay, the toolbar just wraps onto a second line. */
 @supports not (container-type: inline-size) {
   .preview-toolbar .pt-meta { flex-basis: 100%; }
+}
+
+/* Device stage: holds the iframe at a real device width and scales it down.
+   The site inside still reports the device width, so its media queries behave
+   as they would there — which is the whole point of previewing at a size. */
+.preview-stage { width: 100%; }
+.preview-stage.framed {
+  display: flex;
+  justify-content: center;
+  overflow: auto;
+  padding: 10px 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  height: calc(100vh - 190px);
+  min-height: 480px;
+}
+.preview-viewport {
+  flex: none;
+  transform-origin: top center;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(2, 6, 23, 0.22);
+  background: #fff;
+}
+.preview-viewport .preview-frame {
+  height: 100%;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+}
+.preview-size {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-family: var(--mono);
+  white-space: nowrap;
+  flex: none;
 }
 
 .preview-frame {
